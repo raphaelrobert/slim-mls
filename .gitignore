@@ -1,6 +1,5 @@
 *.redxml
 *.txt
-!rfc9420.txt
 *.html
 *.pdf
 *.upload
