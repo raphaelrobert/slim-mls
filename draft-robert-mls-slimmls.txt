@@ -1,0 +1,560 @@
+
+
+
+
+Messaging Layer Security                                       R. Robert
+Internet-Draft                                                K. Kohbrok
+Intended status: Informational                               Phoenix R&D
+Expires: 30 October 2026                                   28 April 2026
+
+
+                                SlimMLS
+                    draft-robert-mls-slimmls-latest
+
+Abstract
+
+   This document defines SlimMLS, an extension to the Messaging Layer
+   Security (MLS) protocol that reduces the wire and per-client storage
+   overhead of MLS groups and makes MLS more flexible in server assisted
+   deployments.  SlimMLS's main use-case is for groups with post-quantum
+   ciphersuites.  SlimMLS replaces large objects like HPKE public keys,
+   signature public keys, credentials and HPKE ciphertexts with hash
+   references.  The large objects themselves are fetched by or
+   distributed by clients as needed.  SlimMLS also defines SlimWelcomes,
+   which apply the partial-commit construction to Welcome messages so
+   that recipients need only download the HPKE ciphertext intended for
+   them.
+
+About This Document
+
+   This note is to be removed before publishing as an RFC.
+
+   Status information for this document may be found at
+   https://datatracker.ietf.org/doc/draft-robert-mls-slimmls/.
+
+   Discussion of this document takes place on the Messaging Layer
+   Security Working Group mailing list (mailto:mls@ietf.org), which is
+   archived at https://mailarchive.ietf.org/arch/browse/mls/.  Subscribe
+   at https://www.ietf.org/mailman/listinfo/mls/.
+
+   Source for this draft and an issue tracker can be found at
+   https://github.com/raphaelrobert/draft-robert-mls-slimmls.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on 30 October 2026.
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.  Code Components
+   extracted from this document must include Revised BSD License text as
+   described in Section 4.e of the Trust Legal Provisions and are
+   provided without warranty as described in the Revised BSD License.
+
+Table of Contents
+
+   1.  Introduction
+   2.  Conventions and Definitions
+   3.  Overview
+   4.  Reference Computation
+   5.  SlimMLS Structs
+   6.  Large Object Carrier
+   7.  SlimWelcome
+     7.1.  Sender and DS Behavior
+     7.2.  SlimEncryptedGroupSecrets
+     7.3.  WelcomeGroupInfo
+   8.  Wire Formats
+   9.  The slim_mls Extension
+   10. The slim_external_pub Extension
+   11. Security Considerations
+   12. IANA Considerations
+     12.1.  SlimMLS MLS Extension Types
+     12.2.  SlimMLS Wire Formats
+   13. References
+     13.1.  Normative References
+     13.2.  Informative References
+   Acknowledgments
+   Authors' Addresses
+
+1.  Introduction
+
+   Post-quantum (PQ) signature and KEM primitives have substantially
+   larger keys, ciphertexts, and signatures than their classical
+   counterparts.  In an MLS group [RFC9420] this manifests as
+   significantly larger LeafNodes, parent nodes, Welcomes, and Commits.
+   The blow-up is felt both on the wire and in client storage.
+
+   SlimMLS reduces this overhead by applying a single uniform technique:
+   wherever a large object appears inside a structure that is signed or
+   fed into the MLS transcript hash, it is replaced by a hash reference
+   to that object.  The object itself is transported alongside the
+   signed structure.  Because the binding to the signed structure is
+   preserved by the hash, an untrusted Delivery Service (DS) can
+   selectively fan out large objects to the clients that need them, omit
+   objects a client already has, or rewrite the carrier without
+   compromising authenticity.  In turn, clients can selectively fetch
+   objects that they are missing.
+
+   This pattern is not new in MLS: [RFC9420] already uses RefHash-based
+   references such as KeyPackageRef and ProposalRef.  SlimMLS
+   generalizes the mechanism.
+
+   [[TODO: quantify wire and storage savings for representative PQ
+   ciphersuites once the specification stabilizes.]]
+
+2.  Conventions and Definitions
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+   "OPTIONAL" in this document are to be interpreted as described in
+   BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all
+   capitals, as shown here.
+
+   This document uses the TLS presentation language and notation of
+   [RFC9420].  Familiarity with MLS [RFC9420] is assumed.
+
+3.  Overview
+
+   A SlimMLS group is an MLS group whose GroupContext carries the
+   slim_mls extension (Section 9).  In such a group:
+
+   *  Every place where [RFC9420] embeds one of the large object types
+      enumerated in Section 4 inside a signed or transcript-hashed
+      structure is replaced with a hash reference of the corresponding
+      type.
+
+   *  Every slim message carries, in addition to the signed structure,
+      an unauthenticated carrier (Section 6) holding the large objects
+      each recipient needs.
+
+4.  Reference Computation
+
+   All new references are computed in the same style as KeyPackageRef in
+   Section 5.2 of [RFC9420], i.e., using RefHash instantiated with the
+   group's ciphersuite hash function and a label unique to the
+   referenced object type.  Inputs are TLS-encoded per [RFC9420].
+
+   The following reference types are defined:
+
+   +====================+=======================+=====================+
+   | Object type        | Reference type        | RefHash label       |
+   +====================+=======================+=====================+
+   | HPKEPublicKey      | HPKEPublicKeyRef      | "MLS 1.0 SlimMLS    |
+   |                    |                       | HPKEPublicKey"      |
+   +--------------------+-----------------------+---------------------+
+   | SignaturePublicKey | SignaturePublicKeyRef | "MLS 1.0 SlimMLS    |
+   |                    |                       | SignaturePublicKey" |
+   +--------------------+-----------------------+---------------------+
+   | Credential         | CredentialRef         | "MLS 1.0 SlimMLS    |
+   |                    |                       | Credential"         |
+   +--------------------+-----------------------+---------------------+
+   | HPKECiphertext     | HPKECiphertextRef     | "MLS 1.0 SlimMLS    |
+   |                    |                       | HPKECiphertext"     |
+   +--------------------+-----------------------+---------------------+
+
+                                 Table 1
+
+   Each reference is opaque<V> where V is the output length of the
+   ciphersuite hash function.
+
+5.  SlimMLS Structs
+
+   For every [RFC9420] struct that embeds one or more of the large
+   object types listed in Section 4, SlimMLS defines a corresponding
+   "Slim*" struct that is identical to the original except that each
+   occurrence of a large object is replaced by the reference type from
+   Section 4 and that each occurrence of a struct for which there exists
+   a Slim equivalent is replaced by that equivalent.
+
+   The exception to the rule is the Welcome struct, which is simply
+   replaced by the SlimWelcome struct as defined in Section 7.
+
+   In a SlimMLS group, the slim struct is sent on the wire wherever
+   [RFC9420] would specify the original struct.  Validation of [RFC9420]
+   apply in the same way.  References are only replaced by the
+   corresponding large objects if functionally necessary (e.g. to verify
+   a signature or encrypt a ciphertext).
+
+   The [RFC9420] structs affected, the large objects they embed, and the
+   SlimMLS replacements are listed below.  Structs whose only embedded
+   large objects appear via a nested struct (e.g., proposals that carry
+   a LeafNode or KeyPackage) inherit slim variants implicitly via the
+   slim nested struct.
+
+     +================+=====================+========================+
+     | RFC 9420       | Embedded large      | SlimMLS replacement(s) |
+     | struct         | object(s)           |                        |
+     +================+=====================+========================+
+     | LeafNode       | HPKEPublicKey,      | HPKEPublicKeyRef,      |
+     |                | SignaturePublicKey, | SignaturePublicKeyRef, |
+     |                | Credential          | CredentialRef          |
+     +----------------+---------------------+------------------------+
+     | ParentNode     | HPKEPublicKey       | HPKEPublicKeyRef       |
+     +----------------+---------------------+------------------------+
+     | KeyPackage     | HPKEPublicKey       | HPKEPublicKeyRef;      |
+     |                | (init_key),         | SlimLeafNode           |
+     |                | LeafNode            |                        |
+     +----------------+---------------------+------------------------+
+     | UpdatePathNode | HPKEPublicKey;      | HPKEPublicKeyRef;      |
+     |                | HPKECiphertext      | HPKECiphertextRef      |
+     |                | (vector)            | (vector)               |
+     +----------------+---------------------+------------------------+
+     | UpdatePath     | LeafNode;           | SlimLeafNode;          |
+     |                | UpdatePathNode      | SlimUpdatePathNode     |
+     |                | (vector)            |                        |
+     +----------------+---------------------+------------------------+
+     | Add proposal   | KeyPackage          | SlimKeyPackage         |
+     +----------------+---------------------+------------------------+
+     | Update         | LeafNode            | SlimLeafNode           |
+     | proposal       |                     |                        |
+     +----------------+---------------------+------------------------+
+     | ratchet_tree   | LeafNode,           | SlimLeafNode,          |
+     | extension      | ParentNode          | SlimParentNode         |
+     +----------------+---------------------+------------------------+
+
+                                  Table 2
+
+   The exact TLS presentation of each slim struct is obtained by
+   mechanical substitution against [RFC9420] and is not repeated here.
+
+   [[TODO: provide explicit TLS presentations for each slim variant in a
+   later revision.]]
+
+6.  Large Object Carrier
+
+   A client sending a SlimMLS struct over the wire MAY also send a
+   LargeObjectCarrier struct that contains a subset of the large structs
+   referenced by the SlimMLS struct.
+
+   For each *Ref type that appears in the signed structure, the
+   LargeObjectCarrier contains a vector of the corresponding large
+   objects:
+
+   struct {
+     HPKEPublicKey      hpke_public_keys<V>;
+     SignaturePublicKey signature_public_keys<V>;
+     Credential         credentials<V>;
+     HPKECiphertext     hpke_ciphertexts<V>;
+   } LargeObjectCarrier;
+
+   The carrier is NOT part of the signed structure.  The DS MAY add,
+   remove, reorder, or substitute entries on a per-recipient basis,
+   e.g., to omit objects the recipient already has cached, or to
+   distribute partial-commit ciphertexts.  The DS MAY reject a message
+   based on a missing LargeObjectCarrier or on a LargeObjectCarrier that
+   is missing the large objects that clients will need to process a
+   message.
+
+   On receipt, a client:
+
+   1.  Computes the reference of every entry in the carrier under the
+       appropriate label.
+
+   2.  For every *Ref appearing in the signed structure, locates the
+       matching object either in the carrier or in its local cache.
+
+   3.  If any required object is missing, the client MUST request it
+       from the DS via an application-specific mechanism, or drop the
+       message.
+
+7.  SlimWelcome
+
+   SlimWelcome makes two changes relative to the [RFC9420] Welcome:
+
+   1.  The per-recipient EncryptedGroupSecrets is replaced by a
+       SlimEncryptedGroupSecrets (Section 7.2), which permits the
+       recipient to be identified either by KeyPackageRef (as in
+       [RFC9420]) or by leaf index.
+
+   2.  The encrypted_group_info field is replaced by an
+       optional<WelcomeGroupInfo> (Section 7.3), where WelcomeGroupInfo
+       is a tagged union over the [RFC9420] encrypted form and a
+       plaintext form.
+
+   With the exception of changes described in this section, SlimWelcomes
+   are processed just like regular Welcome messages.
+
+   struct {
+     CipherSuite                cipher_suite;
+     SlimEncryptedGroupSecrets  secrets<V>;
+     optional<WelcomeGroupInfo> group_info;
+   } SlimWelcome;
+
+7.1.  Sender and DS Behavior
+
+   The sender MUST construct SlimWelcome.secrets to contain one
+   SlimEncryptedGroupSecrets for every recipient it intends to add, in
+   the same order it would use under [RFC9420].
+
+   The DS MAY remove entries from SlimWelcome.secrets on a per-recipient
+   basis, e.g., to deliver to each recipient only its own entry.
+
+   If the sender omits the group_info field (presence octet 0), the DS
+   MUST populate it with a WelcomeGroupInfo before delivering the
+   SlimWelcome to a recipient (Section 7.3).
+
+7.2.  SlimEncryptedGroupSecrets
+
+   SlimEncryptedGroupSecrets extends the [RFC9420] EncryptedGroupSecrets
+   to allow either of two recipient identifiers:
+
+   enum {
+     reserved(0),
+     key_package_ref(1),
+     leaf_node_index(2),
+     (255)
+   } RecipientIdentifierType;
+
+   struct {
+     RecipientIdentifierType recipient_type;
+     select (SlimEncryptedGroupSecrets.recipient_type) {
+       case key_package_ref:
+         KeyPackageRef new_member;
+       case leaf_node_index:
+         uint32 leaf_node_index;
+     };
+     HPKECiphertext encrypted_group_secrets;
+   } SlimEncryptedGroupSecrets;
+
+   A recipient locates the entry intended for it by matching either its
+   own KeyPackageRef or its leaf in the group's ratchet tree via the
+   leaf index.
+
+7.3.  WelcomeGroupInfo
+
+   WelcomeGroupInfo is a tagged union over two presentations of the
+   GroupInfo: the encrypted form used by [RFC9420] or a plaintext form:
+
+   enum {
+     reserved(0),
+     encrypted(1),
+     plaintext(2),
+     (255)
+   } WelcomeGroupInfoType;
+
+   struct {
+     WelcomeGroupInfoType info_type;
+     select (WelcomeGroupInfo.info_type) {
+       case encrypted:
+         opaque encrypted_group_info<V>;
+       case plaintext:
+         GroupInfo group_info;
+     };
+   } WelcomeGroupInfo;
+
+   The encrypted variant is identical to the encrypted_group_info field
+   of the [RFC9420] Welcome, encrypted under a key derived from the
+   joiner secret.  The plaintext variant carries the GroupInfo in the
+   clear.
+
+   The outer optional<WelcomeGroupInfo> in the SlimWelcome additionally
+   allows the sender to omit the GroupInfo.  This mode is intended for
+   server-assisted deployments where the sender is already providing a
+   (partial) GroupInfo alongside the commit that adds the new
+   member(s)to the group.
+
+   A recipient that receives a SlimWelcome whose group_info field is
+   absent MUST consider the SlimWelcome invalid.
+
+8.  Wire Formats
+
+   SlimMLS introduces new WireFormat values only where a recipient
+   cannot know from context that SlimMLS framing is in use, which
+   applies to SlimKeyPackages and SlimWelcomes.
+
+   MLSMessage is correspondingly extended with the two new cases:
+
+   struct {
+     ProtocolVersion version = mls10;
+     WireFormat wire_format;
+     select (MLSMessage.wire_format) {
+       case mls_public_message:    PublicMessage  public_message;
+       case mls_private_message:   PrivateMessage private_message;
+       case mls_welcome:           Welcome        welcome;
+       case mls_group_info:        GroupInfo      group_info;
+       case mls_key_package:       KeyPackage     key_package;
+       case mls_slim_welcome:      SlimWelcome    slim_welcome;
+       case mls_slim_key_package:  SlimKeyPackage slim_key_package;
+     };
+   } MLSMessage;
+
+   A SlimMLS-aware sender MAY use mls_slim_key_package for any
+   SlimKeyPackage publication and MUST use mls_slim_welcome for any
+   SlimWelcome delivery in the context of a group with the slim_mls
+   extension.
+
+9.  The slim_mls Extension
+
+   SlimMLS is signaled by a GroupContext extension named slim_mls.
+   Presence of this extension in the GroupContext means that all wire
+   formats within the group use SlimMLS replacements.
+
+10.  The slim_external_pub Extension
+
+   The [RFC9420] external_pub GroupInfo extension carries an
+   HPKEPublicKey that external joiners use when issuing an External Init
+   proposal (Section 12.4.3.2 of [RFC9420]).  SlimMLS defines a
+   slim_external_pub GroupInfo extension that conveys the same
+   information using an HPKEPublicKeyRef:
+
+   struct {
+     HPKEPublicKeyRef external_pub_ref;
+   } SlimExternalPub;
+
+   In a SlimMLS group, the [RFC9420] external_pub extension MUST NOT be
+   used.  A sender that would include external_pub MUST instead include
+   the slim_external_pub extension, populated with the reference to the
+   relevant HPKEPublicKey.  The actual public key is resolved via the
+   LargeObjectCarrier (Section 6) or the local cache, as for any other
+   HPKEPublicKeyRef.
+
+11.  Security Considerations
+
+   The signing and transcript-hashing rules of [RFC9420] are preserved
+   by SlimMLS: every struct that was authenticated under [RFC9420]
+   remains authenticated, with large objects bound through the
+   collision-resistant hash references defined in Section 4.  The
+   strength of the binding is therefore at most the collision resistance
+   of the ciphersuite hash.
+
+   The LargeObjectCarrier (Section 6) is unauthenticated by design.  A
+   Delivery Service or network attacker that withholds, modifies, or
+   substitutes carrier entries can only cause a recipient to fail to
+   resolve a reference, which is functionally equivalent to dropping the
+   message, which the DS can already to under [RFC9420].  A recipient
+   MUST verify that any object it consumes from the carrier hashes
+   (under the appropriate label and the ciphersuite hash) to the
+   corresponding *Ref in the signed structure before using that object
+   for any cryptographic operation.
+
+   Because the carrier is unauthenticated, an attacker can also include
+   unsolicited or malformed objects in it.  Recipients MUST NOT treat
+   the carrier as authoritative metadata and MUST ignore objects whose
+   hash does not match any reference in the signed structure.
+
+   A client that caches resolved large objects across groups MUST index
+   its cache by the pair (ciphersuite hash function, reference value).
+   The same underlying object yields different reference values under
+   different hash functions, and a cached object MUST NOT be treated as
+   authoritative across ciphersuites whose hash functions differ.
+
+   SlimWelcome (Section 7) introduces two confidentiality changes
+   relative to the [RFC9420] Welcome:
+
+   *  When WelcomeGroupInfo.info_type is plaintext, the GroupInfo is
+      visible to the DS and to anyone observing the SlimWelcome on the
+      wire.  This variant is appropriate only in deployments where the
+      GroupInfo is not considered confidential with respect to those
+      parties (e.g., where the DS already maintains group state).
+
+   *  When SlimWelcome.group_info is absent (presence octet 0), the DS
+      chooses which WelcomeGroupInfo a joiner ultimately receives.
+
+   In both cases authenticity is unchanged: the joiner MUST verify the
+   GroupInfo signature exactly as under [RFC9420], and a SlimWelcome
+   that reaches a recipient with group_info still absent MUST be
+   rejected (Section 7.3).
+
+12.  IANA Considerations
+
+12.1.  SlimMLS MLS Extension Types
+
+   IANA is requested to add the following entries to the "MLS Extension
+   Types" registry defined in Section 17.3 of [RFC9420]:
+
+   +=======+===================+============+=============+===========+
+   | Value | Name              | Message(s) | Recommended | Reference |
+   +=======+===================+============+=============+===========+
+   | TBD   | slim_mls          | GC         | Y           | RFC XXXX  |
+   +-------+-------------------+------------+-------------+-----------+
+   | TBD   | slim_external_pub | GI         | Y           | RFC XXXX  |
+   +-------+-------------------+------------+-------------+-----------+
+
+                                 Table 3
+
+   The "Message(s)" abbreviations are those used in Section 17.3 of
+   [RFC9420]; "GC" denotes a GroupContext extension and "GI" denotes a
+   GroupInfo extension.  RFC XXXX is to be replaced with the RFC number
+   assigned to this document upon publication.
+
+12.2.  SlimMLS Wire Formats
+
+   IANA is requested to add the following entries to the "MLS Wire
+   Formats" registry defined in Section 17.2 of [RFC9420]:
+
+        +=======+======================+=============+===========+
+        | Value | Name                 | Recommended | Reference |
+        +=======+======================+=============+===========+
+        | TBD   | mls_slim_welcome     | Y           | RFC XXXX  |
+        +-------+----------------------+-------------+-----------+
+        | TBD   | mls_slim_key_package | Y           | RFC XXXX  |
+        +-------+----------------------+-------------+-----------+
+
+                                 Table 4
+
+13.  References
+
+13.1.  Normative References
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <https://www.rfc-editor.org/rfc/rfc2119>.
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https://www.rfc-editor.org/rfc/rfc8174>.
+
+   [RFC9420]  Barnes, R., Beurdouche, B., Robert, R., Millican, J.,
+              Omara, E., and K. Cohn-Gordon, "The Messaging Layer
+              Security (MLS) Protocol", RFC 9420, DOI 10.17487/RFC9420,
+              July 2023, <https://www.rfc-editor.org/rfc/rfc9420>.
+
+13.2.  Informative References
+
+   [I-D.ietf-mls-partial]
+              Kiefer, F., Bhargavan, K., Barnes, R., Joël, and M.
+              Mularczyk, "Partial MLS", Work in Progress, Internet-
+              Draft, draft-ietf-mls-partial-00, 2 September 2025,
+              <https://datatracker.ietf.org/doc/html/draft-ietf-mls-
+              partial-00>.
+
+   [SAIK]     Alwen, J., Hartmann, D., Kiltz, E., and M. Mularczyk,
+              "Server-Aided Continuous Group Key Agreement", ACM
+              CCS 2022, pp. 69-82, 2022,
+              <https://eprint.iacr.org/2021/1456>.
+
+Acknowledgments
+
+   TODO acknowledge.
+
+Authors' Addresses
+
+   Raphael Robert
+   Phoenix R&D
+   Email: ietf@raphaelrobert.com
+
+
+   Konrad Kohbrok
+   Phoenix R&D
+   Email: konrad@ratchet.ing
