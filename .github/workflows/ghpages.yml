@@ -18,49 +18,30 @@ jobs:
   build:
     name: "Update Editor's Copy"
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
     - name: "Checkout"
-      uses: actions/checkout@v6
+      uses: actions/checkout@v2
 
-    - name: "Setup"
-      id: setup
-      run: date -u "+date=%FT%T" >>"$GITHUB_OUTPUT"
+    - name: "Cache Setup"
+      id: cache-setup
+      run: |
+        mkdir -p "$HOME"/.cache/xml2rfc
+        echo "::set-output name=path::$HOME/.cache/xml2rfc"
+        date -u "+::set-output name=date::%FT%T"
 
-    - name: "Caching"
-      uses: actions/cache@v5
+    - name: "Cache References"
+      uses: actions/cache@v2
       with:
         path: |
-          .refcache
-          .venv
-          .gems
-          node_modules
+          ${{ steps.cache-setup.outputs.path }}
           .targets.mk
-        key: i-d-${{ steps.setup.outputs.date }}
-        restore-keys: i-d-
+        key: refcache-${{ steps.cache-setup.outputs.date }}
+        restore-keys: |
+          refcache-${{ steps.cache-setup.outputs.date }}
+          refcache-
 
     - name: "Build Drafts"
-      id: build
       uses: martinthomson/i-d-template@v1
-      with:
-        token: ${{ github.token }}
-
-    - name: "Fix Lints"
-      id: fix-lint
-      if: always() && steps.build.outcome == 'failure'
-      uses: martinthomson/i-d-template@v1
-      with:
-        make: fix-lint
-
-    - name: "Propose Linting Fixes"
-      if: >
-        always() &&
-        steps.fix-lint.outcome != 'skipped' &&
-        github.event.pull_request &&
-        github.event.pull_request.head.repo.full_name == github.repository
-      uses: parkerbxyz/suggest-changes@v3
       with:
         token: ${{ github.token }}
 
@@ -72,9 +53,8 @@ jobs:
         token: ${{ github.token }}
 
     - name: "Archive Built Drafts"
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v2
       with:
-        name: drafts
         path: |
           draft-*.html
           draft-*.txt
