@@ -12,8 +12,9 @@
 (MLS) protocol that reduces the wire and per-client storage overhead of MLS
 groups and makes MLS more flexible in server assisted deployments. SlimMLS's
 main use-case is for groups with post-quantum ciphersuites. SlimMLS replaces
-large objects like HPKE public keys, signature public keys, credentials and HPKE
-ciphertexts with hash references. The large objects themselves are obtained by
+large objects like HPKE public keys, signature public keys, credentials,
+HPKE ciphertexts, and most signatures with hash references. GroupInfo
+signatures are retained inline. The large objects themselves are obtained by
 clients as needed, either from a message-specific carrier, a local cache, or an
 application-specific fetch mechanism. SlimMLS also defines SlimWelcomes, which
 apply the partial-commit construction to Welcome messages so that recipients
@@ -36,8 +37,8 @@ need only download the HPKE ciphertext intended for them.
     platformdirs 4.9.6
     pycountry 24.6.1
     PyYAML 6.0.3
-    requests 2.32.5
-    wcwidth 0.6.0
+    requests 2.33.1
+    wcwidth 0.7.0
 -->
 <link href="draft-robert-mls-slimmls.xml" rel="alternate" type="application/rfc+xml">
 <link href="#copyright" rel="license">
@@ -1058,11 +1059,11 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <thead><tr>
 <td class="left">Internet-Draft</td>
 <td class="center">SlimMLS</td>
-<td class="right">April 2026</td>
+<td class="right">May 2026</td>
 </tr></thead>
 <tfoot><tr>
 <td class="left">Robert &amp; Kohbrok</td>
-<td class="center">Expires 30 October 2026</td>
+<td class="center">Expires 5 November 2026</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1075,12 +1076,12 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <dd class="internet-draft">draft-robert-mls-slimmls-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-04-28" class="published">28 April 2026</time>
+<time datetime="2026-05-04" class="published">4 May 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Informational</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2026-10-30">30 October 2026</time></dd>
+<dd class="expires"><time datetime="2026-11-05">5 November 2026</time></dd>
 <dt class="label-authors">Authors:</dt>
 <dd class="authors">
 <div class="author">
@@ -1101,8 +1102,9 @@ svg :is([fill="white"], [fill^="#fff"]) {
 (MLS) protocol that reduces the wire and per-client storage overhead of MLS
 groups and makes MLS more flexible in server assisted deployments. SlimMLS's
 main use-case is for groups with post-quantum ciphersuites. SlimMLS replaces
-large objects like HPKE public keys, signature public keys, credentials and HPKE
-ciphertexts with hash references. The large objects themselves are obtained by
+large objects like HPKE public keys, signature public keys, credentials,
+HPKE ciphertexts, and most signatures with hash references. GroupInfo
+signatures are retained inline. The large objects themselves are obtained by
 clients as needed, either from a message-specific carrier, a local cache, or an
 application-specific fetch mechanism. SlimMLS also defines SlimWelcomes, which
 apply the partial-commit construction to Welcome messages so that recipients
@@ -1142,7 +1144,7 @@ need only download the HPKE ciphertext intended for them.<a href="#section-abstr
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 30 October 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 5 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1193,10 +1195,13 @@ need only download the HPKE ciphertext intended for them.<a href="#section-abstr
             <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-slimkeypackage" class="internal xref">SlimKeyPackage</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.1">
-                <p id="section-toc.1-1.7.2.1.1"><a href="#section-7.1" class="auto internal xref">7.1</a>.  <a href="#name-outerkeypackagehash-compone" class="internal xref">OuterKeyPackageHash component</a></p>
+                <p id="section-toc.1-1.7.2.1.1"><a href="#section-7.1" class="auto internal xref">7.1</a>.  <a href="#name-keypackage-batch-merkle-tre" class="internal xref">KeyPackage Batch Merkle Tree</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2">
-                <p id="section-toc.1-1.7.2.2.1"><a href="#section-7.2" class="auto internal xref">7.2</a>.  <a href="#name-creation-and-processing" class="internal xref">Creation and Processing</a></p>
+                <p id="section-toc.1-1.7.2.2.1"><a href="#section-7.2" class="auto internal xref">7.2</a>.  <a href="#name-outerkeypackagehash-compone" class="internal xref">OuterKeyPackageHash component</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.3">
+                <p id="section-toc.1-1.7.2.3.1"><a href="#section-7.3" class="auto internal xref">7.3</a>.  <a href="#name-creation-and-processing" class="internal xref">Creation and Processing</a></p>
 </li>
             </ul>
 </li>
@@ -1309,14 +1314,15 @@ ciphertexts, and signatures than their classical counterparts. In an MLS group
 Welcomes, and Commits. The blow-up is felt both on the wire and in client
 storage.<a href="#section-1-1" class="pilcrow">¶</a></p>
 <p id="section-1-2">SlimMLS reduces this overhead by applying a single uniform technique: wherever a
-large object appears inside a structure that is signed or fed into the MLS
-transcript hash, it is replaced by a hash reference to that object. The object
-itself can be transported alongside the signed structure, retrieved from a
-cache, or fetched separately. Because the binding to the signed structure is
-preserved by the hash, an untrusted Delivery Service (DS) can selectively fan out
-large objects to the clients that need them, omit objects a client already has,
-or rewrite a carrier without compromising authenticity. In turn, clients can
-selectively fetch objects that they are missing.<a href="#section-1-2" class="pilcrow">¶</a></p>
+large object appears inside a structure, it is replaced by a hash reference to
+that object, except for the GroupInfo signatures described in
+<a href="#slim-structs" class="auto internal xref">Section 5</a>. The object itself can be transported alongside the signed
+structure, retrieved from a cache, or fetched separately. Because the binding to
+signed and transcript-hashed structures is preserved by the hash, an untrusted
+Delivery Service (DS) can selectively fan out large objects to the clients that
+need them, omit objects a client already has, or rewrite a carrier without
+compromising authenticity. In turn, clients can selectively fetch objects that
+they are missing.<a href="#section-1-2" class="pilcrow">¶</a></p>
 <p id="section-1-3">This pattern is not new in MLS: <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> already uses RefHash-based
 references such as KeyPackageRef and ProposalRef. SlimMLS generalizes
 the mechanism.<a href="#section-1-3" class="pilcrow">¶</a></p>
@@ -1347,8 +1353,9 @@ extension (<a href="#slim-mls-extension" class="auto internal xref">Section 12</
 <ul class="normal">
 <li class="normal" id="section-3-2.1">
           <p id="section-3-2.1.1">Every place where <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> embeds an HPKEPublicKey, SignaturePublicKey,
-Credential, or HPKECiphertext inside a signed or transcript-hashed structure
-is replaced with a hash reference of the corresponding type.<a href="#section-3-2.1.1" class="pilcrow">¶</a></p>
+Credential, HPKECiphertext, or signature is replaced with a hash reference of
+the corresponding type, except that GroupInfo signatures remain inline as in
+<span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-3-2.1.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-3-2.2">
           <p id="section-3-2.2.1">A slim message <span class="bcp14">MAY</span> be accompanied by an unauthenticated carrier
@@ -1364,10 +1371,9 @@ application-specific fetch mechanism.<a href="#section-3-2.2.1" class="pilcrow">
       <h2 id="name-reference-computation">
 <a href="#section-4" class="section-number selfRef">4. </a><a href="#name-reference-computation" class="section-name selfRef">Reference Computation</a>
       </h2>
-<p id="section-4-1">All new references are computed in the same style as KeyPackageRef in
-<span><a href="https://rfc-editor.org/rfc/rfc9420#section-5.2" class="relref">Section 5.2</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, i.e., using RefHash instantiated with the
-group's ciphersuite hash function and a label unique to the referenced
-object type. Inputs are TLS-encoded per <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-4-1" class="pilcrow">¶</a></p>
+<p id="section-4-1">All new references are computed in the same style as KeyPackageRef in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-5.2" class="relref">Section 5.2</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, i.e., using RefHash instantiated with the group's ciphersuite
+hash function and a label unique to the referenced object type. Inputs are
+TLS-encoded per <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-4-1" class="pilcrow">¶</a></p>
 <p id="section-4-2">The following reference types are defined:<a href="#section-4-2" class="pilcrow">¶</a></p>
 <table class="center" id="table-1">
         <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
@@ -1400,6 +1406,11 @@ object type. Inputs are TLS-encoded per <span>[<a href="#RFC9420" class="cite xr
             <td class="text-left" rowspan="1" colspan="1">"MLS 1.0 SlimMLS HPKECiphertext"</td>
           </tr>
           <tr>
+            <td class="text-left" rowspan="1" colspan="1">Signature</td>
+            <td class="text-left" rowspan="1" colspan="1">SignatureRef</td>
+            <td class="text-left" rowspan="1" colspan="1">"MLS 1.0 SlimMLS Signature"</td>
+          </tr>
+          <tr>
             <td class="text-left" rowspan="1" colspan="1">SlimKeyPackage</td>
             <td class="text-left" rowspan="1" colspan="1">SlimKeyPackageRef</td>
             <td class="text-left" rowspan="1" colspan="1">"MLS 1.0 SlimMLS KeyPackage Reference"</td>
@@ -1411,6 +1422,9 @@ ciphersuite hash function.<a href="#section-4-4" class="pilcrow">¶</a></p>
 <p id="section-4-5">For a SlimKeyPackageRef, the value input is the TLS-encoded SlimKeyPackage.
 SlimKeyPackageRef is used to identify the recipient of a SlimWelcome; it is not
 a large-object reference and has no corresponding LargeObjectCarrier entry.<a href="#section-4-5" class="pilcrow">¶</a></p>
+<p id="section-4-6">SignatureRef is used for signature fields that appear in slim structures, except
+GroupInfo signatures, and for detached signatures referenced by slim structures,
+such as the SlimKeyPackage batch signature (<a href="#slim-key-package" class="auto internal xref">Section 7</a>).<a href="#section-4-6" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="slim-structs">
@@ -1419,30 +1433,35 @@ a large-object reference and has no corresponding LargeObjectCarrier entry.<a hr
 <a href="#section-5" class="section-number selfRef">5. </a><a href="#name-slimmls-structs" class="section-name selfRef">SlimMLS Structs</a>
       </h2>
 <p id="section-5-1">For every <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> struct that embeds an HPKEPublicKey, SignaturePublicKey,
-Credential, or HPKECiphertext, SlimMLS defines a corresponding "Slim*" struct
-that is identical to the original except that each occurrence of a large object
-is replaced by the reference type from <a href="#ref-types" class="auto internal xref">Section 4</a> and that each occurrence of
-a struct for which there exists a Slim equivalent is replaced by that
-equivalent.
+Credential, HPKECiphertext, or signature, SlimMLS defines a corresponding
+"Slim*" struct that is identical to the original except that each occurrence of
+a large object is replaced by the reference type from <a href="#ref-types" class="auto internal xref">Section 4</a> and that
+each occurrence of a struct for which there exists a Slim equivalent is replaced
+by that equivalent.
 Tree hashes and parent hashes are likewise computed over the slim encodings, so
 the reference values stand in for the corresponding large objects in these
 computations.<a href="#section-5-1" class="pilcrow">¶</a></p>
-<p id="section-5-2">The exceptions to the rule are the Welcome, KeyPackage, and Commit structs,
+<p id="section-5-2">GroupInfo is an exception to signature replacement. A GroupInfo in a SlimMLS
+group can carry slim extensions such as <code>slim_ratchet_tree</code>, but its signature
+field remains the inline <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> signature and is not replaced with a
+SignatureRef.<a href="#section-5-2" class="pilcrow">¶</a></p>
+<p id="section-5-3">The exceptions to the rule are the Welcome, KeyPackage, and Commit structs,
 which are replaced by the SlimWelcome struct (<a href="#slim-welcome" class="auto internal xref">Section 8</a>), the
 SlimKeyPackage struct (<a href="#slim-key-package" class="auto internal xref">Section 7</a>), and the SlimCommit struct
 (<a href="#slim-commit" class="auto internal xref">Section 9</a>) respectively. As a consequence, the UpdatePath struct does
 not appear in a SlimMLS group; its contents are split between SlimCommit
 (which carries the committer's SlimLeafNode) and SlimUpdatePath (which
-carries the path nodes).<a href="#section-5-2" class="pilcrow">¶</a></p>
-<p id="section-5-3">In a SlimMLS group, the slim struct is sent on the wire wherever <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>
+carries the path nodes).<a href="#section-5-3" class="pilcrow">¶</a></p>
+<p id="section-5-4">In a SlimMLS group, the slim struct is sent on the wire wherever <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>
 would specify the original struct. Validation of <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> apply in the same
 way. References are only replaced by the corresponding large objects if
-functionally necessary (e.g. to verify a signature or encrypt a ciphertext).<a href="#section-5-3" class="pilcrow">¶</a></p>
-<p id="section-5-4">The <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> structs affected, the large objects they embed, and the
+functionally necessary (e.g. to verify a signature, encrypt a ciphertext, or
+retrieve referenced signature bytes).<a href="#section-5-4" class="pilcrow">¶</a></p>
+<p id="section-5-5">The <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> structs affected, the large objects they embed, and the
 SlimMLS replacements are listed below. Structs whose only embedded large
 objects appear via a nested struct (e.g., proposals that carry a
 LeafNode or KeyPackage) inherit slim variants implicitly via the slim
-nested struct.<a href="#section-5-4" class="pilcrow">¶</a></p>
+nested struct.<a href="#section-5-5" class="pilcrow">¶</a></p>
 <table class="center" id="table-2">
         <caption><a href="#table-2" class="selfRef">Table 2</a></caption>
 <thead>
@@ -1455,8 +1474,8 @@ nested struct.<a href="#section-5-4" class="pilcrow">¶</a></p>
         <tbody>
           <tr>
             <td class="text-left" rowspan="1" colspan="1">LeafNode</td>
-            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKey, SignaturePublicKey, Credential</td>
-            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKeyRef, SignaturePublicKeyRef, CredentialRef</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKey, SignaturePublicKey, Credential, signature</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKeyRef, SignaturePublicKeyRef, CredentialRef, SignatureRef</td>
           </tr>
           <tr>
             <td class="text-left" rowspan="1" colspan="1">ParentNode</td>
@@ -1472,6 +1491,11 @@ nested struct.<a href="#section-5-4" class="pilcrow">¶</a></p>
             <td class="text-left" rowspan="1" colspan="1">UpdatePathNode</td>
             <td class="text-left" rowspan="1" colspan="1">HPKEPublicKey; HPKECiphertext (vector)</td>
             <td class="text-left" rowspan="1" colspan="1">HPKEPublicKeyRef; HPKECiphertextRef (vector)</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Signature-bearing structs except GroupInfo</td>
+            <td class="text-left" rowspan="1" colspan="1">signature</td>
+            <td class="text-left" rowspan="1" colspan="1">SignatureRef</td>
           </tr>
           <tr>
             <td class="text-left" rowspan="1" colspan="1">Add proposal</td>
@@ -1490,9 +1514,9 @@ nested struct.<a href="#section-5-4" class="pilcrow">¶</a></p>
           </tr>
         </tbody>
       </table>
-<p id="section-5-6">The following slim tree structures are used in tree-hash and parent-hash
-computations:<a href="#section-5-6" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-5-7">
+<p id="section-5-7">The following slim tree structures are used in tree-hash and parent-hash
+computations:<a href="#section-5-7" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5-8">
 <pre>
 struct {
   HPKEPublicKeyRef encryption_key_ref;
@@ -1505,14 +1529,14 @@ struct {
   opaque           parent_hash&lt;V&gt;;
   opaque           original_sibling_tree_hash&lt;V&gt;;
 } SlimParentHashInput;
-</pre><a href="#section-5-7" class="pilcrow">¶</a>
+</pre><a href="#section-5-8" class="pilcrow">¶</a>
 </div>
-<p id="section-5-8">SlimParentNode replaces ParentNode. SlimParentHashInput replaces the
-ParentHashInput defined in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.9" class="relref">Section 7.9</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-5-8" class="pilcrow">¶</a></p>
-<p id="section-5-9">The exact TLS presentation of each other slim struct is obtained by mechanical
-substitution against <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> and is not repeated here.<a href="#section-5-9" class="pilcrow">¶</a></p>
-<p id="section-5-10">[[TODO: provide explicit TLS presentations for each slim variant in a
-later revision.]]<a href="#section-5-10" class="pilcrow">¶</a></p>
+<p id="section-5-9">SlimParentNode replaces ParentNode. SlimParentHashInput replaces the
+ParentHashInput defined in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.9" class="relref">Section 7.9</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-5-9" class="pilcrow">¶</a></p>
+<p id="section-5-10">The exact TLS presentation of each other slim struct is obtained by mechanical
+substitution against <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> and is not repeated here.<a href="#section-5-10" class="pilcrow">¶</a></p>
+<p id="section-5-11">[[TODO: provide explicit TLS presentations for each slim variant in a
+later revision.]]<a href="#section-5-11" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="large-object-carrier">
@@ -1543,6 +1567,7 @@ struct {
   SignaturePublicKey signature_public_keys&lt;V&gt;;
   Credential         credentials&lt;V&gt;;
   HPKECiphertext     hpke_ciphertexts&lt;V&gt;;
+  Signature          signatures&lt;V&gt;;
 } LargeObjectCarrier;
 </pre><a href="#section-6-4" class="pilcrow">¶</a>
 </div>
@@ -1579,14 +1604,18 @@ application-specific mechanism, for example from the DS, or drop the message.<a 
 <a href="#section-7" class="section-number selfRef">7. </a><a href="#name-slimkeypackage" class="section-name selfRef">SlimKeyPackage</a>
       </h2>
 <p id="section-7-1">SlimKeyPackage applies the slim reference replacement to KeyPackage and
-additionally adopts the single-signature construction of
-<span>[<a href="#I-D.kohbrok-mls-fewer-signatures" class="cite xref">I-D.kohbrok-mls-fewer-signatures</a>]</span>: the signature around the KeyPackage is
-omitted, and authenticity of the surrounding fields is provided by a hash
-component placed in the SlimLeafNode that the SlimLeafNode's signature
-already covers.<a href="#section-7-1" class="pilcrow">¶</a></p>
-<p id="section-7-2">A SlimKeyPackage is partitioned into an OuterSlimKeyPackage (the fields of a
-KeyPackage other than the LeafNode and signature) and a SlimLeafNode:<a href="#section-7-2" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-7-3">
+amortizes KeyPackage authentication across a batch of KeyPackages uploaded by
+the same client. The signature around the KeyPackage is omitted, and the
+per-KeyPackage LeafNode signature is replaced by a detached batch signature over
+the root of a Merkle tree. The leaves of this tree are the SlimLeafNodeTBS
+values of the SlimKeyPackages in the batch.<a href="#section-7-1" class="pilcrow">¶</a></p>
+<p id="section-7-2"><code>SlimLeafNodeTBS</code> denotes the LeafNodeTBS input defined by <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> after
+applying the slim substitutions in <a href="#slim-structs" class="auto internal xref">Section 5</a>. It is the unsigned part of
+a SlimLeafNode and carries no signature field.<a href="#section-7-2" class="pilcrow">¶</a></p>
+<p id="section-7-3">A SlimKeyPackage is partitioned into an OuterSlimKeyPackage (the fields of a
+KeyPackage other than the LeafNode and signature), a SlimLeafNodeTBS, a
+reference to the detached batch signature, and a Merkle inclusion proof:<a href="#section-7-3" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7-4">
 <pre>
 struct {
   ProtocolVersion  version;
@@ -1596,80 +1625,177 @@ struct {
 } OuterSlimKeyPackage;
 
 struct {
-  OuterSlimKeyPackage outer_key_package;
-  SlimLeafNode        leaf_node;
+  opaque sibling_hash&lt;V&gt;;
+} SlimKeyPackageMerkleProofNode;
+
+struct {
+  uint32                         leaf_index;
+  uint32                         tree_size;
+  SlimKeyPackageMerkleProofNode  path&lt;V&gt;;
+} SlimKeyPackageMerkleProof;
+
+struct {
+  ProtocolVersion       version;
+  CipherSuite           cipher_suite;
+  SignaturePublicKeyRef signature_key_ref;
+  uint32                tree_size;
+  opaque                merkle_root&lt;V&gt;;
+} SlimKeyPackageBatchTBS;
+
+struct {
+  OuterSlimKeyPackage              outer_key_package;
+  SlimLeafNode                     leaf_node;
+  SlimKeyPackageMerkleProof        proof;
 } SlimKeyPackage;
-</pre><a href="#section-7-3" class="pilcrow">¶</a>
+</pre><a href="#section-7-4" class="pilcrow">¶</a>
 </div>
-<p id="section-7-4">A SlimKeyPackage carries no outer signature. Authenticity of
-<code>outer_key_package</code> is provided by an OuterKeyPackageHash component
-(<a href="#outer-key-package-hash" class="auto internal xref">Section 7.1</a>) placed in the SlimLeafNode's
-<code>app_data_dictionary</code> extension, which is in turn covered by the
-SlimLeafNode's signature.<a href="#section-7-4" class="pilcrow">¶</a></p>
-<p id="section-7-5">The HPKEPublicKey corresponding to <code>init_key_ref</code>, together with any large
-objects referenced by the SlimLeafNode, is resolved per
-<a href="#large-object-carrier" class="auto internal xref">Section 6</a>.<a href="#section-7-5" class="pilcrow">¶</a></p>
-<div id="outer-key-package-hash">
+<p id="section-7-5">A SlimKeyPackage carries no outer signature and no per-package LeafNode
+signature. Authenticity of <code>outer_key_package</code> is provided by an
+OuterKeyPackageHash component (<a href="#outer-key-package-hash" class="auto internal xref">Section 7.2</a>) placed in the
+SlimLeafNode's <code>app_data_dictionary</code> extension. Authenticity of the
+SlimLeafNode, including this component, is provided by the batch signature
+inside the SlimLeafNode and the Merkle inclusion proof.<a href="#section-7-5" class="pilcrow">¶</a></p>
+<p id="section-7-6">The HPKEPublicKey corresponding to <code>init_key_ref</code>, together with any large
+objects referenced by the SlimLeafNodeTBS, is resolved per
+<a href="#large-object-carrier" class="auto internal xref">Section 6</a>.<a href="#section-7-6" class="pilcrow">¶</a></p>
+<div id="slim-key-package-merkle-tree">
 <section id="section-7.1">
-        <h3 id="name-outerkeypackagehash-compone">
-<a href="#section-7.1" class="section-number selfRef">7.1. </a><a href="#name-outerkeypackagehash-compone" class="section-name selfRef">OuterKeyPackageHash component</a>
+        <h3 id="name-keypackage-batch-merkle-tre">
+<a href="#section-7.1" class="section-number selfRef">7.1. </a><a href="#name-keypackage-batch-merkle-tre" class="section-name selfRef">KeyPackage Batch Merkle Tree</a>
         </h3>
-<div class="alignLeft art-text artwork" id="section-7.1-1">
+<p id="section-7.1-1">The Merkle tree for a SlimKeyPackage batch is computed under the hash function
+of the SlimKeyPackage ciphersuite. A batch <span class="bcp14">MUST</span> contain at least one leaf. All
+SlimKeyPackages in a batch <span class="bcp14">MUST</span> have the same <code>version</code>, <code>cipher_suite</code>, and
+<code>signature_key_ref</code>.<a href="#section-7.1-1" class="pilcrow">¶</a></p>
+<p id="section-7.1-2">The leaf hash for a SlimLeafNodeTBS is computed over the TLS-encoded
+SlimLeafNodeTBS:<a href="#section-7.1-2" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.1-3">
+<pre>
+HashWithLabel("SlimKeyPackageLeaf", SlimLeafNodeTBS)
+</pre><a href="#section-7.1-3" class="pilcrow">¶</a>
+</div>
+<p id="section-7.1-4">The parent hash for two child hashes is computed over their TLS-encoded ordered
+pair:<a href="#section-7.1-4" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.1-5">
+<pre>
+struct {
+  opaque left&lt;V&gt;;
+  opaque right&lt;V&gt;;
+} SlimKeyPackageMerkleParentInput;
+
+HashWithLabel("SlimKeyPackageNode", SlimKeyPackageMerkleParentInput)
+</pre><a href="#section-7.1-5" class="pilcrow">¶</a>
+</div>
+<p id="section-7.1-6">The tree is built bottom-up from the ordered list of leaf hashes. At each level,
+adjacent nodes are paired from left to right. If the final node at a level has
+no sibling, it is promoted unchanged to the next level. The single node
+remaining after this process is the Merkle root.<a href="#section-7.1-6" class="pilcrow">¶</a></p>
+<p id="section-7.1-7">The <code>path</code> entries in SlimKeyPackageMerkleProof are ordered from the leaf level
+toward the root. To verify a proof, a recipient starts with the leaf hash of
+<code>leaf_node_tbs</code>, <code>leaf_index</code>, and <code>tree_size</code>. At each level, if the current
+level width is odd and the current index is <code>width - 1</code>, the current hash is
+promoted unchanged and no path entry is consumed. Otherwise, the next path entry
+is consumed as the sibling hash and the parent hash is computed with the sibling
+on the left when the current index is odd, and on the right when the current
+index is even. The index is then divided by two, rounding down, and the level
+width is divided by two, rounding up. A proof is valid only if <code>tree_size</code> is
+nonzero, <code>leaf_index &lt; tree_size</code>, all path entries are consumed, and the final
+computed hash is the Merkle root.<a href="#section-7.1-7" class="pilcrow">¶</a></p>
+<p id="section-7.1-8">The batch signature is computed over:<a href="#section-7.1-8" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.1-9">
+<pre>
+SignWithLabel(., "SlimKeyPackageBatchTBS", SlimKeyPackageBatchTBS)
+</pre><a href="#section-7.1-9" class="pilcrow">¶</a>
+</div>
+<p id="section-7.1-10">where <code>version</code> and <code>cipher_suite</code> are taken from <code>outer_key_package</code>,
+<code>signature_key_ref</code> is taken from <code>leaf_node_tbs</code>, <code>tree_size</code> is taken from
+<code>proof</code>, and <code>merkle_root</code> is the Merkle root computed as above.<a href="#section-7.1-10" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="outer-key-package-hash">
+<section id="section-7.2">
+        <h3 id="name-outerkeypackagehash-compone">
+<a href="#section-7.2" class="section-number selfRef">7.2. </a><a href="#name-outerkeypackagehash-compone" class="section-name selfRef">OuterKeyPackageHash component</a>
+        </h3>
+<div class="alignLeft art-text artwork" id="section-7.2-1">
 <pre>
 struct {
   opaque outer_key_package_hash&lt;V&gt;;
 } OuterKeyPackageHash;
-</pre><a href="#section-7.1-1" class="pilcrow">¶</a>
+</pre><a href="#section-7.2-1" class="pilcrow">¶</a>
 </div>
-<p id="section-7.1-2"><code>outer_key_package_hash</code> is the hash, under the SlimKeyPackage's ciphersuite
+<p id="section-7.2-2"><code>outer_key_package_hash</code> is the hash, under the SlimKeyPackage's ciphersuite
 hash function, of the TLS-encoded <code>outer_key_package</code> of the SlimKeyPackage
-in which the SlimLeafNode appears.<a href="#section-7.1-2" class="pilcrow">¶</a></p>
-<p id="section-7.1-3">An OuterKeyPackageHash is valid only if the SlimLeafNode's
+in which the SlimLeafNode appears.<a href="#section-7.2-2" class="pilcrow">¶</a></p>
+<p id="section-7.2-3">An OuterKeyPackageHash is valid only if the SlimLeafNode's
 <code>leaf_node_source</code> is <code>key_package</code> and <code>outer_key_package_hash</code> equals the
-hash of the enclosing SlimKeyPackage's <code>outer_key_package</code>.<a href="#section-7.1-3" class="pilcrow">¶</a></p>
-<p id="section-7.1-4">The <code>app_data_dictionary</code> extension <span class="bcp14">MUST</span> contain exactly one
+hash of the enclosing SlimKeyPackage's <code>outer_key_package</code>.<a href="#section-7.2-3" class="pilcrow">¶</a></p>
+<p id="section-7.2-4">The <code>app_data_dictionary</code> extension <span class="bcp14">MUST</span> contain exactly one
 OuterKeyPackageHash component under component identifier TBD. A missing,
 malformed, or duplicated OuterKeyPackageHash component makes the enclosing
-SlimKeyPackage invalid.<a href="#section-7.1-4" class="pilcrow">¶</a></p>
+SlimKeyPackage invalid.<a href="#section-7.2-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="creation-and-processing">
-<section id="section-7.2">
+<section id="section-7.3">
         <h3 id="name-creation-and-processing">
-<a href="#section-7.2" class="section-number selfRef">7.2. </a><a href="#name-creation-and-processing" class="section-name selfRef">Creation and Processing</a>
+<a href="#section-7.3" class="section-number selfRef">7.3. </a><a href="#name-creation-and-processing" class="section-name selfRef">Creation and Processing</a>
         </h3>
-<p id="section-7.2-1">A sender constructs a SlimKeyPackage as follows:<a href="#section-7.2-1" class="pilcrow">¶</a></p>
-<ol start="1" type="1" class="normal type-1" id="section-7.2-2">
-<li id="section-7.2-2.1">
-            <p id="section-7.2-2.1.1">Construct an OuterSlimKeyPackage with the desired version, cipher_suite,
-HPKEPublicKeyRef for the init key, and extensions.<a href="#section-7.2-2.1.1" class="pilcrow">¶</a></p>
+<p id="section-7.3-1">A sender constructs a SlimKeyPackage as follows:<a href="#section-7.3-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-7.3-2">
+<li id="section-7.3-2.1">
+            <p id="section-7.3-2.1.1">Construct an OuterSlimKeyPackage with the desired version, cipher_suite,
+HPKEPublicKeyRef for the init key, and extensions.<a href="#section-7.3-2.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-7.2-2.2">
-            <p id="section-7.2-2.2.1">Construct a SlimLeafNode with <code>leaf_node_source = key_package</code>. Add an
+          <li id="section-7.3-2.2">
+            <p id="section-7.3-2.2.1">Construct a SlimLeafNodeTBS with <code>leaf_node_source = key_package</code>. Add an
 <code>app_data_dictionary</code> extension containing an OuterKeyPackageHash whose
-value is the hash of the OuterSlimKeyPackage from step 1.<a href="#section-7.2-2.2.1" class="pilcrow">¶</a></p>
+value is the hash of the OuterSlimKeyPackage from step 1.<a href="#section-7.3-2.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-7.2-2.3">
-            <p id="section-7.2-2.3.1">Sign the SlimLeafNode per <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-7.2-2.3.1" class="pilcrow">¶</a></p>
+          <li id="section-7.3-2.3">
+            <p id="section-7.3-2.3.1">Construct all other SlimLeafNodeTBS values in the batch in the same way.<a href="#section-7.3-2.3.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-7.2-2.4">
-            <p id="section-7.2-2.4.1">Emit the SlimKeyPackage, optionally accompanied by a LargeObjectCarrier
-holding the referenced HPKEPublicKey and the large objects referenced by the
-SlimLeafNode.<a href="#section-7.2-2.4.1" class="pilcrow">¶</a></p>
+          <li id="section-7.3-2.4">
+            <p id="section-7.3-2.4.1">Build the KeyPackage batch Merkle tree over the SlimLeafNodeTBS values.<a href="#section-7.3-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.3-2.5">
+            <p id="section-7.3-2.5.1">Construct a SlimKeyPackageBatchTBS for the root, sign it with the signature
+private key corresponding to <code>signature_key_ref</code>, and compute the
+SignatureRef over the raw signature bytes.<a href="#section-7.3-2.5.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.3-2.6">
+            <p id="section-7.3-2.6.1">Emit each SlimKeyPackage with its leaf's inclusion proof and the common
+SignatureRef, optionally accompanied by a
+LargeObjectCarrier holding the referenced HPKEPublicKey and the large objects
+referenced by the SlimLeafNode and the batch signature bytes.<a href="#section-7.3-2.6.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
-<p id="section-7.2-3">A recipient processes a SlimKeyPackage like a KeyPackage with the following
-exceptions:<a href="#section-7.2-3" class="pilcrow">¶</a></p>
+<p id="section-7.3-3">A recipient processes a SlimKeyPackage like a KeyPackage with the following
+exceptions:<a href="#section-7.3-3" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-7.2-4.1">
-            <p id="section-7.2-4.1.1">There is no outer signature to verify.<a href="#section-7.2-4.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="section-7.3-4.1">
+            <p id="section-7.3-4.1.1">There is no outer signature to verify.<a href="#section-7.3-4.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-7.2-4.2">
-            <p id="section-7.2-4.2.1">The SlimLeafNode <span class="bcp14">MUST</span> contain an <code>app_data_dictionary</code> extension with a
-valid OuterKeyPackageHash component.<a href="#section-7.2-4.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-7.3-4.2">
+            <p id="section-7.3-4.2.1">There is no per-package LeafNode signature to verify.<a href="#section-7.3-4.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-7.2-4.3">
-            <p id="section-7.2-4.3.1">All large-object <code>*Ref</code> values are resolved per <a href="#large-object-carrier" class="auto internal xref">Section 6</a>.<a href="#section-7.2-4.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-7.3-4.3">
+            <p id="section-7.3-4.3.1">The SlimLeafNode <span class="bcp14">MUST</span> contain an <code>app_data_dictionary</code> extension with a valid
+OuterKeyPackageHash component.<a href="#section-7.3-4.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.3-4.4">
+            <p id="section-7.3-4.4.1">The recipient resolves the batch signature bytes using <code>signature_ref</code> from
+inside the <code>leaf_node</code>, computes SignatureRef over those bytes, and verifies
+that it equals <code>signature_ref</code>.<a href="#section-7.3-4.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.3-4.5">
+            <p id="section-7.3-4.5.1">The recipient verifies the Merkle inclusion proof, reconstructs the
+SlimKeyPackageBatchTBS, resolves the SignaturePublicKey corresponding to
+<code>signature_key_ref</code>, and verifies the raw batch signature bytes identified by
+<code>signature_ref</code> using VerifyWithLabel label "SlimKeyPackageBatchTBS".<a href="#section-7.3-4.5.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.3-4.6">
+            <p id="section-7.3-4.6.1">All large-object <code>*Ref</code> values are resolved per <a href="#large-object-carrier" class="auto internal xref">Section 6</a>.<a href="#section-7.3-4.6.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
@@ -1721,6 +1847,17 @@ populate it with a plaintext WelcomeGroupInfo before delivering the SlimWelcome
 to a recipient (<a href="#welcome-group-info" class="auto internal xref">Section 8.3</a>). In this mode, the GroupInfo used by the
 sender to encrypt the SlimEncryptedGroupSecrets and the GroupInfo populated by
 the DS <span class="bcp14">MUST</span> be byte-for-byte identical.<a href="#section-8.1-3" class="pilcrow">¶</a></p>
+<p id="section-8.1-4">A DS that supplies large objects alongside a SlimWelcome can distinguish
+between basic-processing delivery and update-capable delivery. Basic-processing
+delivery contains the large objects needed for the recipient to validate the
+SlimWelcome, derive the epoch secrets, receive subsequent MLS messages, and send
+application messages. It can omit HPKE public keys that are only needed to
+construct a future Commit with an update path. Update-capable delivery
+additionally includes enough HPKE public keys for the recipient to construct an
+update path without a later fetch, such as the HPKE public keys for the
+recipient's copath resolution in the delivered tree. A recipient that has only
+basic-processing state <span class="bcp14">MUST</span> resolve the missing HPKEPublicKeyRefs before
+sending a Commit with an update path.<a href="#section-8.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="slim-egs">
@@ -1827,9 +1964,10 @@ carried alongside the framed SlimCommit without being included in the transcript
 hash, the membership tag, or the framing signature.<a href="#section-9-3" class="pilcrow">¶</a></p>
 <p id="section-9-4">A SlimCommit carries the normal <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> confirmation tag. When the
 single-signature construction of <a href="#single-sig-commits" class="auto internal xref">Section 9.4</a> applies, the
-authentication data contains the confirmation tag but omits the signature field,
-as in <span>[<a href="#I-D.kohbrok-mls-fewer-signatures" class="cite xref">I-D.kohbrok-mls-fewer-signatures</a>]</span>. Otherwise, the authentication data
-contains both the confirmation tag and the framing signature.<a href="#section-9-4" class="pilcrow">¶</a></p>
+authentication data contains the confirmation tag but omits the signature
+reference field, as in <span>[<a href="#I-D.kohbrok-mls-fewer-signatures" class="cite xref">I-D.kohbrok-mls-fewer-signatures</a>]</span>. Otherwise, the
+authentication data contains both the confirmation tag and a reference to the
+framing signature.<a href="#section-9-4" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-9-5">
 <pre>
 struct {
@@ -1905,7 +2043,7 @@ struct {
     SignWithLabel(., "FramedContentTBS",
       SlimCommitFramedContentTBS)
   */
-  optional&lt;opaque&lt;V&gt;&gt; signature;
+  optional&lt;SignatureRef&gt; signature_ref;
 
   /*
     MAC(confirmation_key,
@@ -1977,12 +2115,12 @@ SlimCommitFramedContent from the outer <code>group_id</code>, <code>epoch</code>
 This reconstructed SlimCommitFramedContent is used for signature verification,
 OuterUpdateHash verification, transcript hash computation, and confirmation tag
 verification.<a href="#section-9.2-5" class="pilcrow">¶</a></p>
-<p id="section-9.2-6">The optional <code>signature</code> field in SlimCommitFramedContentAuthData <span class="bcp14">MUST</span> be
+<p id="section-9.2-6">The optional <code>signature_ref</code> field in SlimCommitFramedContentAuthData <span class="bcp14">MUST</span> be
 absent if and only if the single-signature construction of
-<a href="#single-sig-commits" class="auto internal xref">Section 9.4</a> applies. When present, the signature is computed and
-verified as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, except that the to-be-signed content is
-SlimCommitFramedContentTBS and the WireFormat is either <code>mls_slim_public_commit</code>
-or <code>mls_slim_private_commit</code>.<a href="#section-9.2-6" class="pilcrow">¶</a></p>
+<a href="#single-sig-commits" class="auto internal xref">Section 9.4</a> applies. When present, it references a signature that is
+computed and verified as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, except that the to-be-signed content
+is SlimCommitFramedContentTBS and the WireFormat is either
+<code>mls_slim_public_commit</code> or <code>mls_slim_private_commit</code>.<a href="#section-9.2-6" class="pilcrow">¶</a></p>
 <p id="section-9.2-7">For SlimPublicCommitMessage, the membership tag is computed over the following
 structure:<a href="#section-9.2-7" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-9.2-8">
@@ -2109,14 +2247,16 @@ parent hash <span class="bcp14">MUST</span> authenticate the HPKEPublicKeyRefs i
 </li>
           <li id="section-9.5-2.4">
             <p id="section-9.5-2.4.1">If the single-signature construction applies, include a valid OuterUpdateHash
-in the SlimLeafNode and leave the optional signature field absent. Otherwise,
-include the normal framing signature in the optional signature field.<a href="#section-9.5-2.4.1" class="pilcrow">¶</a></p>
+in the SlimLeafNode and leave the optional <code>signature_ref</code> field absent.
+Otherwise, include a SignatureRef to the normal framing signature in the
+optional <code>signature_ref</code> field.<a href="#section-9.5-2.4.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-9.5-2.5">
             <p id="section-9.5-2.5.1">Build a SlimUpdatePath whose SlimUpdatePathNodes carry the HPKEPublicKeyRefs
 and HPKECiphertextRefs of the path, and emit a SlimPublicCommitMessage or
 SlimPrivateCommitMessage, optionally accompanied by a LargeObjectCarrier
-holding the corresponding HPKEPublicKeys and HPKECiphertexts.<a href="#section-9.5-2.5.1" class="pilcrow">¶</a></p>
+holding the corresponding HPKEPublicKeys, HPKECiphertexts, and any framing
+signature.<a href="#section-9.5-2.5.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
 <p id="section-9.5-3">The DS, knowing the ratchet tree before and after the commit, produces a
@@ -2128,38 +2268,50 @@ remaining path secrets it needs to process the Commit. If a LargeObjectCarrier
 is present, the DS reduces it accordingly, retaining only any HPKEPublicKeys the
 recipient must receive and the HPKECiphertexts corresponding to the retained
 HPKECiphertextRefs. If the commit removes the recipient, <code>path</code> is omitted.<a href="#section-9.5-3" class="pilcrow">¶</a></p>
-<p id="section-9.5-4">A recipient processes a SlimCommitMessage by:<a href="#section-9.5-4" class="pilcrow">¶</a></p>
-<ol start="1" type="1" class="normal type-1" id="section-9.5-5">
-<li id="section-9.5-5.1">
-            <p id="section-9.5-5.1.1">Resolving the HPKECiphertextRefs required for the recipient, and any
-HPKEPublicKeyRefs that are functionally needed, per <a href="#large-object-carrier" class="auto internal xref">Section 6</a>.<a href="#section-9.5-5.1.1" class="pilcrow">¶</a></p>
+<p id="section-9.5-4">For basic-processing delivery of a Commit with an update path, a recipient needs
+enough ciphertext material to derive the epoch secrets and verify the Commit, but
+does not necessarily need every HPKE public key referenced by the path. Such a
+recipient can process the Commit, receive subsequent MLS messages, and send
+application messages, but might not be able to construct its own Commit with an
+update path until it resolves additional HPKEPublicKeyRefs. To make the
+recipient immediately update-capable, the DS <span class="bcp14">MAY</span> include any updated HPKE
+public keys in the recipient's copath that the recipient cannot derive from its
+retained path secret. In a full tree with no blank nodes, this is one HPKE
+public key for each non-committing recipient.<a href="#section-9.5-4" class="pilcrow">¶</a></p>
+<p id="section-9.5-5">A recipient processes a SlimCommitMessage by:<a href="#section-9.5-5" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-9.5-6">
+<li id="section-9.5-6.1">
+            <p id="section-9.5-6.1.1">Resolving the HPKECiphertextRefs and SignatureRefs required for the
+recipient, and any HPKEPublicKeyRefs that are functionally needed, per
+<a href="#large-object-carrier" class="auto internal xref">Section 6</a>.<a href="#section-9.5-6.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-9.5-5.2">
-            <p id="section-9.5-5.2.1">If SlimCommitFramedContentAuthData contains a signature, verifying it per
-<span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> using SlimCommitFramedContentTBS. Otherwise, verifying the
-SlimLeafNode signature and OuterUpdateHash per <a href="#single-sig-commits" class="auto internal xref">Section 9.4</a>.<a href="#section-9.5-5.2.1" class="pilcrow">¶</a></p>
+          <li id="section-9.5-6.2">
+            <p id="section-9.5-6.2.1">If SlimCommitFramedContentAuthData contains a <code>signature_ref</code>, resolving and
+verifying the referenced signature per <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> using
+SlimCommitFramedContentTBS. Otherwise, verifying the SlimLeafNode signature
+and OuterUpdateHash per <a href="#single-sig-commits" class="auto internal xref">Section 9.4</a>.<a href="#section-9.5-6.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-9.5-5.3">
-            <p id="section-9.5-5.3.1">Decrypting the resolved HPKECiphertext, deriving the path public keys, and
+          <li id="section-9.5-6.3">
+            <p id="section-9.5-6.3.1">Decrypting the resolved HPKECiphertext, deriving the path public keys, and
 verifying that the derived public keys hash to the authenticated
-HPKEPublicKeyRefs.<a href="#section-9.5-5.3.1" class="pilcrow">¶</a></p>
+HPKEPublicKeyRefs.<a href="#section-9.5-6.3.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-9.5-5.4">
-            <p id="section-9.5-5.4.1">Applying the path update and verifying parent hashes over the slim encodings
-per <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.9.2" class="relref">Section 7.9.2</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-9.5-5.4.1" class="pilcrow">¶</a></p>
+          <li id="section-9.5-6.4">
+            <p id="section-9.5-6.4.1">Applying the path update and verifying parent hashes over the slim encodings
+per <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.9.2" class="relref">Section 7.9.2</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-9.5-6.4.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-9.5-5.5">
-            <p id="section-9.5-5.5.1">Processing the commit per <span><a href="https://rfc-editor.org/rfc/rfc9420#section-12.4" class="relref">Section 12.4</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, deriving the new
+          <li id="section-9.5-6.5">
+            <p id="section-9.5-6.5.1">Processing the commit per <span><a href="https://rfc-editor.org/rfc/rfc9420#section-12.4" class="relref">Section 12.4</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, deriving the new
 epoch, and verifying the confirmation tag. If confirmation tag validation
-fails, the recipient <span class="bcp14">MUST</span> reject the commit.<a href="#section-9.5-5.5.1" class="pilcrow">¶</a></p>
+fails, the recipient <span class="bcp14">MUST</span> reject the commit.<a href="#section-9.5-6.5.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
-<p id="section-9.5-6">The input to the confirmed transcript hash is
+<p id="section-9.5-7">The input to the confirmed transcript hash is
 SlimCommitConfirmedTranscriptHashInput. The interim transcript hash is computed
-from the confirmed transcript hash and the confirmation tag as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-9.5-6" class="pilcrow">¶</a></p>
-<p id="section-9.5-7">DSs that do not maintain the ratchet tree cannot perform the per-recipient
+from the confirmed transcript hash and the confirmation tag as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-9.5-7" class="pilcrow">¶</a></p>
+<p id="section-9.5-8">DSs that do not maintain the ratchet tree cannot perform the per-recipient
 reduction described above. Strategies for such deployments are out of scope, as
-in <span>[<a href="#I-D.mularczyk-mls-splitcommit" class="cite xref">I-D.mularczyk-mls-splitcommit</a>]</span>.<a href="#section-9.5-7" class="pilcrow">¶</a></p>
+in <span>[<a href="#I-D.mularczyk-mls-splitcommit" class="cite xref">I-D.mularczyk-mls-splitcommit</a>]</span>.<a href="#section-9.5-8" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2259,6 +2411,9 @@ publication and <span class="bcp14">MUST</span> use <code>mls_slim_welcome</code
 the context of a group with the <code>slim_mls</code> extension. A SlimMLS-aware sender
 <span class="bcp14">MUST</span> use <code>mls_slim_public_commit</code> or <code>mls_slim_private_commit</code> for any
 SlimCommit delivery in the context of a group with the <code>slim_mls</code> extension.<a href="#section-11-4" class="pilcrow">¶</a></p>
+<p id="section-11-5">SlimMLS does not define a distinct WireFormat for GroupInfo. A standalone
+GroupInfo in a SlimMLS group uses <code>mls_group_info</code> and carries its signature
+inline as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-11-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="slim-mls-extension">
@@ -2267,8 +2422,9 @@ SlimCommit delivery in the context of a group with the <code>slim_mls</code> ext
 <a href="#section-12" class="section-number selfRef">12. </a><a href="#name-the-slim_mls-extension" class="section-name selfRef">The slim_mls Extension</a>
       </h2>
 <p id="section-12-1">SlimMLS is signaled by a GroupContext extension named <code>slim_mls</code>. Presence
-of this extension in the GroupContext means that all wire formats within
-the group use SlimMLS replacements.<a href="#section-12-1" class="pilcrow">¶</a></p>
+of this extension in the GroupContext means that all wire formats within the
+group use SlimMLS replacements, subject to the GroupInfo exception in
+<a href="#wire-formats" class="auto internal xref">Section 11</a>.<a href="#section-12-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="slim-ratchet-tree-extension">
@@ -2364,25 +2520,37 @@ cache by the tuple (reference type, ciphersuite hash function, reference value).
 The same underlying object yields different reference values under different
 hash functions, and a cached object <span class="bcp14">MUST NOT</span> be treated as authoritative across
 ciphersuites whose hash functions differ.<a href="#section-15-5" class="pilcrow">¶</a></p>
-<p id="section-15-6">SlimWelcome (<a href="#slim-welcome" class="auto internal xref">Section 8</a>) introduces two confidentiality changes
-relative to the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> Welcome:<a href="#section-15-6" class="pilcrow">¶</a></p>
+<p id="section-15-6">SlimKeyPackage batch signatures (<a href="#slim-key-package" class="auto internal xref">Section 7</a>) replace independent
+LeafNode signatures with one signature over a Merkle root. A recipient <span class="bcp14">MUST</span>
+verify both the Merkle inclusion proof and the batch signature before treating
+the SlimLeafNodeTBS as authenticated. The signed SlimKeyPackageBatchTBS binds
+the ciphersuite, tree size, Merkle root, and SignaturePublicKeyRef. Together
+with the SignWithLabel label and the Merkle leaf and parent hash labels, this
+prevents a valid batch signature from being replayed across protocols,
+ciphersuites, or signing keys.<a href="#section-15-6" class="pilcrow">¶</a></p>
+<p id="section-15-7">All SlimKeyPackages that share the same <code>batch_signature_ref</code> are linkable as
+members of the same publication batch. Deployments that consider this
+linkability sensitive can reduce batch sizes or publish independently signed
+batches.<a href="#section-15-7" class="pilcrow">¶</a></p>
+<p id="section-15-8">SlimWelcome (<a href="#slim-welcome" class="auto internal xref">Section 8</a>) introduces two confidentiality changes
+relative to the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> Welcome:<a href="#section-15-8" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-15-7.1">
-          <p id="section-15-7.1.1">When <code>WelcomeGroupInfo.info_type</code> is <code>plaintext</code>, the GroupInfo is visible to
+<li class="normal" id="section-15-9.1">
+          <p id="section-15-9.1.1">When <code>WelcomeGroupInfo.info_type</code> is <code>plaintext</code>, the GroupInfo is visible to
 the DS and to anyone observing the SlimWelcome on the wire. This variant is
 appropriate only in deployments where the GroupInfo is not considered
 confidential with respect to those parties (e.g., where the DS already
-maintains group state).<a href="#section-15-7.1.1" class="pilcrow">¶</a></p>
+maintains group state).<a href="#section-15-9.1.1" class="pilcrow">¶</a></p>
 </li>
-        <li class="normal" id="section-15-7.2">
-          <p id="section-15-7.2.1">When <code>SlimWelcome.group_info</code> is absent (presence octet 0), the DS
-chooses which WelcomeGroupInfo a joiner ultimately receives.<a href="#section-15-7.2.1" class="pilcrow">¶</a></p>
+        <li class="normal" id="section-15-9.2">
+          <p id="section-15-9.2.1">When <code>SlimWelcome.group_info</code> is absent (presence octet 0), the DS
+chooses which WelcomeGroupInfo a joiner ultimately receives.<a href="#section-15-9.2.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
-<p id="section-15-8">In both cases authenticity is unchanged: the joiner <span class="bcp14">MUST</span> verify the
+<p id="section-15-10">In both cases authenticity is unchanged: the joiner <span class="bcp14">MUST</span> verify the
 GroupInfo signature exactly as under <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, and a SlimWelcome
 that reaches a recipient with <code>group_info</code> still absent <span class="bcp14">MUST</span> be
-rejected (<a href="#welcome-group-info" class="auto internal xref">Section 8.3</a>).<a href="#section-15-8" class="pilcrow">¶</a></p>
+rejected (<a href="#welcome-group-info" class="auto internal xref">Section 8.3</a>).<a href="#section-15-10" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="iana-considerations">
