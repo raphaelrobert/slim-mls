@@ -54,8 +54,9 @@ This document defines SlimMLS, an extension to the Messaging Layer Security
 (MLS) protocol that reduces the wire and per-client storage overhead of MLS
 groups and makes MLS more flexible in server assisted deployments. SlimMLS's
 main use-case is for groups with post-quantum ciphersuites. SlimMLS replaces
-large objects like HPKE public keys, signature public keys, credentials and HPKE
-ciphertexts with hash references. The large objects themselves are obtained by
+large objects like HPKE public keys, signature public keys, credentials,
+HPKE ciphertexts, and most signatures with hash references. GroupInfo
+signatures are retained inline. The large objects themselves are obtained by
 clients as needed, either from a message-specific carrier, a local cache, or an
 application-specific fetch mechanism. SlimMLS also defines SlimWelcomes, which
 apply the partial-commit construction to Welcome messages so that recipients
@@ -72,14 +73,15 @@ Welcomes, and Commits. The blow-up is felt both on the wire and in client
 storage.
 
 SlimMLS reduces this overhead by applying a single uniform technique: wherever a
-large object appears inside a structure that is signed or fed into the MLS
-transcript hash, it is replaced by a hash reference to that object. The object
-itself can be transported alongside the signed structure, retrieved from a
-cache, or fetched separately. Because the binding to the signed structure is
-preserved by the hash, an untrusted Delivery Service (DS) can selectively fan out
-large objects to the clients that need them, omit objects a client already has,
-or rewrite a carrier without compromising authenticity. In turn, clients can
-selectively fetch objects that they are missing.
+large object appears inside a structure, it is replaced by a hash reference to
+that object, except for the GroupInfo signatures described in
+{{slim-structs}}. The object itself can be transported alongside the signed
+structure, retrieved from a cache, or fetched separately. Because the binding to
+signed and transcript-hashed structures is preserved by the hash, an untrusted
+Delivery Service (DS) can selectively fan out large objects to the clients that
+need them, omit objects a client already has, or rewrite a carrier without
+compromising authenticity. In turn, clients can selectively fetch objects that
+they are missing.
 
 This pattern is not new in MLS: {{!RFC9420}} already uses RefHash-based
 references such as KeyPackageRef and ProposalRef. SlimMLS generalizes
@@ -101,8 +103,9 @@ A SlimMLS group is an MLS group whose GroupContext carries the `slim_mls`
 extension ({{slim-mls-extension}}). In such a group:
 
 - Every place where {{!RFC9420}} embeds an HPKEPublicKey, SignaturePublicKey,
-  Credential, or HPKECiphertext inside a signed or transcript-hashed structure
-  is replaced with a hash reference of the corresponding type.
+  Credential, HPKECiphertext, or signature is replaced with a hash reference of
+  the corresponding type, except that GroupInfo signatures remain inline as in
+  {{!RFC9420}}.
 - A slim message MAY be accompanied by an unauthenticated carrier
   ({{large-object-carrier}}) holding a subset of the large objects the recipient
   needs. Recipients can also resolve references from a local cache or through an
@@ -110,10 +113,10 @@ extension ({{slim-mls-extension}}). In such a group:
 
 # Reference Computation {#ref-types}
 
-All new references are computed in the same style as KeyPackageRef in
-{{Section 5.2 of !RFC9420}}, i.e., using RefHash instantiated with the
-group's ciphersuite hash function and a label unique to the referenced
-object type. Inputs are TLS-encoded per {{!RFC9420}}.
+All new references are computed in the same style as KeyPackageRef in {{Section
+5.2 of !RFC9420}}, i.e., using RefHash instantiated with the group's ciphersuite
+hash function and a label unique to the referenced object type. Inputs are
+TLS-encoded per {{!RFC9420}}.
 
 The following reference types are defined:
 
@@ -123,6 +126,7 @@ The following reference types are defined:
 | SignaturePublicKey | SignaturePublicKeyRef | "MLS 1.0 SlimMLS SignaturePublicKey" |
 | Credential         | CredentialRef         | "MLS 1.0 SlimMLS Credential"         |
 | HPKECiphertext     | HPKECiphertextRef     | "MLS 1.0 SlimMLS HPKECiphertext"     |
+| Signature          | SignatureRef          | "MLS 1.0 SlimMLS Signature"          |
 | SlimKeyPackage     | SlimKeyPackageRef     | "MLS 1.0 SlimMLS KeyPackage Reference" |
 
 Each reference is `opaque<V>` where `V` is the output length of the
@@ -132,17 +136,26 @@ For a SlimKeyPackageRef, the value input is the TLS-encoded SlimKeyPackage.
 SlimKeyPackageRef is used to identify the recipient of a SlimWelcome; it is not
 a large-object reference and has no corresponding LargeObjectCarrier entry.
 
+SignatureRef is used for signature fields that appear in slim structures, except
+GroupInfo signatures, and for detached signatures referenced by slim structures,
+such as the SlimKeyPackage batch signature ({{slim-key-package}}).
+
 # SlimMLS Structs {#slim-structs}
 
 For every {{!RFC9420}} struct that embeds an HPKEPublicKey, SignaturePublicKey,
-Credential, or HPKECiphertext, SlimMLS defines a corresponding "Slim*" struct
-that is identical to the original except that each occurrence of a large object
-is replaced by the reference type from {{ref-types}} and that each occurrence of
-a struct for which there exists a Slim equivalent is replaced by that
-equivalent.
+Credential, HPKECiphertext, or signature, SlimMLS defines a corresponding
+"Slim*" struct that is identical to the original except that each occurrence of
+a large object is replaced by the reference type from {{ref-types}} and that
+each occurrence of a struct for which there exists a Slim equivalent is replaced
+by that equivalent.
 Tree hashes and parent hashes are likewise computed over the slim encodings, so
 the reference values stand in for the corresponding large objects in these
 computations.
+
+GroupInfo is an exception to signature replacement. A GroupInfo in a SlimMLS
+group can carry slim extensions such as `slim_ratchet_tree`, but its signature
+field remains the inline {{!RFC9420}} signature and is not replaced with a
+SignatureRef.
 
 The exceptions to the rule are the Welcome, KeyPackage, and Commit structs,
 which are replaced by the SlimWelcome struct ({{slim-welcome}}), the
@@ -155,7 +168,8 @@ carries the path nodes).
 In a SlimMLS group, the slim struct is sent on the wire wherever {{!RFC9420}}
 would specify the original struct. Validation of {{!RFC9420}} apply in the same
 way. References are only replaced by the corresponding large objects if
-functionally necessary (e.g. to verify a signature or encrypt a ciphertext).
+functionally necessary (e.g. to verify a signature, encrypt a ciphertext, or
+retrieve referenced signature bytes).
 
 The {{!RFC9420}} structs affected, the large objects they embed, and the
 SlimMLS replacements are listed below. Structs whose only embedded large
@@ -165,10 +179,11 @@ nested struct.
 
 | RFC 9420 struct           | Embedded large object(s)                                  | SlimMLS replacement(s)                              |
 |---------------------------|-----------------------------------------------------------|-----------------------------------------------------|
-| LeafNode                  | HPKEPublicKey, SignaturePublicKey, Credential             | HPKEPublicKeyRef, SignaturePublicKeyRef, CredentialRef |
+| LeafNode                  | HPKEPublicKey, SignaturePublicKey, Credential, signature  | HPKEPublicKeyRef, SignaturePublicKeyRef, CredentialRef, SignatureRef |
 | ParentNode                | HPKEPublicKey                                             | HPKEPublicKeyRef                                    |
 | ParentHashInput           | HPKEPublicKey                                             | HPKEPublicKeyRef                                    |
 | UpdatePathNode            | HPKEPublicKey; HPKECiphertext (vector)  | HPKEPublicKeyRef; HPKECiphertextRef (vector)            |
+| Signature-bearing structs except GroupInfo | signature                                     | SignatureRef                                       |
 | Add proposal              | KeyPackage                                                | SlimKeyPackage                                     |
 | Update proposal           | LeafNode                                                  | SlimLeafNode                                       |
 | ratchet_tree extension    | LeafNode, ParentNode                                      | slim_ratchet_tree extension with SlimLeafNode, SlimParentNode |
@@ -226,6 +241,7 @@ struct {
   SignaturePublicKey signature_public_keys<V>;
   Credential         credentials<V>;
   HPKECiphertext     hpke_ciphertexts<V>;
+  Signature          signatures<V>;
 } LargeObjectCarrier;
 ~~~
 
@@ -252,14 +268,19 @@ On receipt, a client:
 # SlimKeyPackage {#slim-key-package}
 
 SlimKeyPackage applies the slim reference replacement to KeyPackage and
-additionally adopts the single-signature construction of
-{{?I-D.kohbrok-mls-fewer-signatures}}: the signature around the KeyPackage is
-omitted, and authenticity of the surrounding fields is provided by a hash
-component placed in the SlimLeafNode that the SlimLeafNode's signature
-already covers.
+amortizes KeyPackage authentication across a batch of KeyPackages uploaded by
+the same client. The signature around the KeyPackage is omitted, and the
+per-KeyPackage LeafNode signature is replaced by a detached batch signature over
+the root of a Merkle tree. The leaves of this tree are the SlimLeafNodeTBS
+values of the SlimKeyPackages in the batch.
+
+`SlimLeafNodeTBS` denotes the LeafNodeTBS input defined by {{!RFC9420}} after
+applying the slim substitutions in {{slim-structs}}. It is the unsigned part of
+a SlimLeafNode and carries no signature field.
 
 A SlimKeyPackage is partitioned into an OuterSlimKeyPackage (the fields of a
-KeyPackage other than the LeafNode and signature) and a SlimLeafNode:
+KeyPackage other than the LeafNode and signature), a SlimLeafNodeTBS, a
+reference to the detached batch signature, and a Merkle inclusion proof:
 
 ~~~
 struct {
@@ -270,20 +291,93 @@ struct {
 } OuterSlimKeyPackage;
 
 struct {
-  OuterSlimKeyPackage outer_key_package;
-  SlimLeafNode        leaf_node;
+  opaque sibling_hash<V>;
+} SlimKeyPackageMerkleProofNode;
+
+struct {
+  uint32                         leaf_index;
+  uint32                         tree_size;
+  SlimKeyPackageMerkleProofNode  path<V>;
+} SlimKeyPackageMerkleProof;
+
+struct {
+  ProtocolVersion       version;
+  CipherSuite           cipher_suite;
+  SignaturePublicKeyRef signature_key_ref;
+  uint32                tree_size;
+  opaque                merkle_root<V>;
+} SlimKeyPackageBatchTBS;
+
+struct {
+  OuterSlimKeyPackage              outer_key_package;
+  SlimLeafNode                     leaf_node;
+  SlimKeyPackageMerkleProof        proof;
 } SlimKeyPackage;
 ~~~
 
-A SlimKeyPackage carries no outer signature. Authenticity of
-`outer_key_package` is provided by an OuterKeyPackageHash component
-({{outer-key-package-hash}}) placed in the SlimLeafNode's
-`app_data_dictionary` extension, which is in turn covered by the
-SlimLeafNode's signature.
+A SlimKeyPackage carries no outer signature and no per-package LeafNode
+signature. Authenticity of `outer_key_package` is provided by an
+OuterKeyPackageHash component ({{outer-key-package-hash}}) placed in the
+SlimLeafNode's `app_data_dictionary` extension. Authenticity of the
+SlimLeafNode, including this component, is provided by the batch signature
+inside the SlimLeafNode and the Merkle inclusion proof.
 
 The HPKEPublicKey corresponding to `init_key_ref`, together with any large
-objects referenced by the SlimLeafNode, is resolved per
+objects referenced by the SlimLeafNodeTBS, is resolved per
 {{large-object-carrier}}.
+
+## KeyPackage Batch Merkle Tree {#slim-key-package-merkle-tree}
+
+The Merkle tree for a SlimKeyPackage batch is computed under the hash function
+of the SlimKeyPackage ciphersuite. A batch MUST contain at least one leaf. All
+SlimKeyPackages in a batch MUST have the same `version`, `cipher_suite`, and
+`signature_key_ref`.
+
+The leaf hash for a SlimLeafNodeTBS is computed over the TLS-encoded
+SlimLeafNodeTBS:
+
+~~~
+HashWithLabel("SlimKeyPackageLeaf", SlimLeafNodeTBS)
+~~~
+
+The parent hash for two child hashes is computed over their TLS-encoded ordered
+pair:
+
+~~~
+struct {
+  opaque left<V>;
+  opaque right<V>;
+} SlimKeyPackageMerkleParentInput;
+
+HashWithLabel("SlimKeyPackageNode", SlimKeyPackageMerkleParentInput)
+~~~
+
+The tree is built bottom-up from the ordered list of leaf hashes. At each level,
+adjacent nodes are paired from left to right. If the final node at a level has
+no sibling, it is promoted unchanged to the next level. The single node
+remaining after this process is the Merkle root.
+
+The `path` entries in SlimKeyPackageMerkleProof are ordered from the leaf level
+toward the root. To verify a proof, a recipient starts with the leaf hash of
+`leaf_node_tbs`, `leaf_index`, and `tree_size`. At each level, if the current
+level width is odd and the current index is `width - 1`, the current hash is
+promoted unchanged and no path entry is consumed. Otherwise, the next path entry
+is consumed as the sibling hash and the parent hash is computed with the sibling
+on the left when the current index is odd, and on the right when the current
+index is even. The index is then divided by two, rounding down, and the level
+width is divided by two, rounding up. A proof is valid only if `tree_size` is
+nonzero, `leaf_index < tree_size`, all path entries are consumed, and the final
+computed hash is the Merkle root.
+
+The batch signature is computed over:
+
+~~~
+SignWithLabel(., "SlimKeyPackageBatchTBS", SlimKeyPackageBatchTBS)
+~~~
+
+where `version` and `cipher_suite` are taken from `outer_key_package`,
+`signature_key_ref` is taken from `leaf_node_tbs`, `tree_size` is taken from
+`proof`, and `merkle_root` is the Merkle root computed as above.
 
 ## OuterKeyPackageHash component {#outer-key-package-hash}
 
@@ -312,20 +406,33 @@ A sender constructs a SlimKeyPackage as follows:
 
 1. Construct an OuterSlimKeyPackage with the desired version, cipher_suite,
    HPKEPublicKeyRef for the init key, and extensions.
-2. Construct a SlimLeafNode with `leaf_node_source = key_package`. Add an
+2. Construct a SlimLeafNodeTBS with `leaf_node_source = key_package`. Add an
    `app_data_dictionary` extension containing an OuterKeyPackageHash whose
    value is the hash of the OuterSlimKeyPackage from step 1.
-3. Sign the SlimLeafNode per {{!RFC9420}}.
-4. Emit the SlimKeyPackage, optionally accompanied by a LargeObjectCarrier
-   holding the referenced HPKEPublicKey and the large objects referenced by the
-   SlimLeafNode.
+3. Construct all other SlimLeafNodeTBS values in the batch in the same way.
+4. Build the KeyPackage batch Merkle tree over the SlimLeafNodeTBS values.
+5. Construct a SlimKeyPackageBatchTBS for the root, sign it with the signature
+   private key corresponding to `signature_key_ref`, and compute the
+   SignatureRef over the raw signature bytes.
+6. Emit each SlimKeyPackage with its leaf's inclusion proof and the common
+   SignatureRef, optionally accompanied by a
+   LargeObjectCarrier holding the referenced HPKEPublicKey and the large objects
+   referenced by the SlimLeafNode and the batch signature bytes.
 
 A recipient processes a SlimKeyPackage like a KeyPackage with the following
 exceptions:
 
 - There is no outer signature to verify.
-- The SlimLeafNode MUST contain an `app_data_dictionary` extension with a
-  valid OuterKeyPackageHash component.
+- There is no per-package LeafNode signature to verify.
+- The SlimLeafNode MUST contain an `app_data_dictionary` extension with a valid
+  OuterKeyPackageHash component.
+- The recipient resolves the batch signature bytes using `signature_ref` from
+  inside the `leaf_node`, computes SignatureRef over those bytes, and verifies
+  that it equals `signature_ref`.
+- The recipient verifies the Merkle inclusion proof, reconstructs the
+  SlimKeyPackageBatchTBS, resolves the SignaturePublicKey corresponding to
+  `signature_key_ref`, and verifies the raw batch signature bytes identified by
+  `signature_ref` using VerifyWithLabel label "SlimKeyPackageBatchTBS".
 - All large-object `*Ref` values are resolved per {{large-object-carrier}}.
 
 # SlimWelcome {#slim-welcome}
@@ -365,6 +472,18 @@ populate it with a plaintext WelcomeGroupInfo before delivering the SlimWelcome
 to a recipient ({{welcome-group-info}}). In this mode, the GroupInfo used by the
 sender to encrypt the SlimEncryptedGroupSecrets and the GroupInfo populated by
 the DS MUST be byte-for-byte identical.
+
+A DS that supplies large objects alongside a SlimWelcome can distinguish
+between basic-processing delivery and update-capable delivery. Basic-processing
+delivery contains the large objects needed for the recipient to validate the
+SlimWelcome, derive the epoch secrets, receive subsequent MLS messages, and send
+application messages. It can omit HPKE public keys that are only needed to
+construct a future Commit with an update path. Update-capable delivery
+additionally includes enough HPKE public keys for the recipient to construct an
+update path without a later fetch, such as the HPKE public keys for the
+recipient's copath resolution in the delivered tree. A recipient that has only
+basic-processing state MUST resolve the missing HPKEPublicKeyRefs before
+sending a Commit with an update path.
 
 ## SlimEncryptedGroupSecrets {#slim-egs}
 
@@ -464,9 +583,10 @@ hash, the membership tag, or the framing signature.
 
 A SlimCommit carries the normal {{!RFC9420}} confirmation tag. When the
 single-signature construction of {{single-sig-commits}} applies, the
-authentication data contains the confirmation tag but omits the signature field,
-as in {{?I-D.kohbrok-mls-fewer-signatures}}. Otherwise, the authentication data
-contains both the confirmation tag and the framing signature.
+authentication data contains the confirmation tag but omits the signature
+reference field, as in {{?I-D.kohbrok-mls-fewer-signatures}}. Otherwise, the
+authentication data contains both the confirmation tag and a reference to the
+framing signature.
 
 ~~~
 struct {
@@ -538,7 +658,7 @@ struct {
     SignWithLabel(., "FramedContentTBS",
       SlimCommitFramedContentTBS)
   */
-  optional<opaque<V>> signature;
+  optional<SignatureRef> signature_ref;
 
   /*
     MAC(confirmation_key,
@@ -613,12 +733,12 @@ This reconstructed SlimCommitFramedContent is used for signature verification,
 OuterUpdateHash verification, transcript hash computation, and confirmation tag
 verification.
 
-The optional `signature` field in SlimCommitFramedContentAuthData MUST be
+The optional `signature_ref` field in SlimCommitFramedContentAuthData MUST be
 absent if and only if the single-signature construction of
-{{single-sig-commits}} applies. When present, the signature is computed and
-verified as in {{!RFC9420}}, except that the to-be-signed content is
-SlimCommitFramedContentTBS and the WireFormat is either `mls_slim_public_commit`
-or `mls_slim_private_commit`.
+{{single-sig-commits}} applies. When present, it references a signature that is
+computed and verified as in {{!RFC9420}}, except that the to-be-signed content
+is SlimCommitFramedContentTBS and the WireFormat is either
+`mls_slim_public_commit` or `mls_slim_private_commit`.
 
 For SlimPublicCommitMessage, the membership tag is computed over the following
 structure:
@@ -733,12 +853,14 @@ A committer constructs a SlimCommitMessage as follows:
    parent hash MUST authenticate the HPKEPublicKeyRefs in the SlimUpdatePath.
 3. Compute the confirmation tag for the new epoch as in {{!RFC9420}}.
 4. If the single-signature construction applies, include a valid OuterUpdateHash
-   in the SlimLeafNode and leave the optional signature field absent. Otherwise,
-   include the normal framing signature in the optional signature field.
+   in the SlimLeafNode and leave the optional `signature_ref` field absent.
+   Otherwise, include a SignatureRef to the normal framing signature in the
+   optional `signature_ref` field.
 5. Build a SlimUpdatePath whose SlimUpdatePathNodes carry the HPKEPublicKeyRefs
    and HPKECiphertextRefs of the path, and emit a SlimPublicCommitMessage or
    SlimPrivateCommitMessage, optionally accompanied by a LargeObjectCarrier
-   holding the corresponding HPKEPublicKeys and HPKECiphertexts.
+   holding the corresponding HPKEPublicKeys, HPKECiphertexts, and any framing
+   signature.
 
 The DS, knowing the ratchet tree before and after the commit, produces a
 per-recipient SlimCommitMessage by reducing each SlimUpdatePathNode's
@@ -750,13 +872,26 @@ is present, the DS reduces it accordingly, retaining only any HPKEPublicKeys the
 recipient must receive and the HPKECiphertexts corresponding to the retained
 HPKECiphertextRefs. If the commit removes the recipient, `path` is omitted.
 
+For basic-processing delivery of a Commit with an update path, a recipient needs
+enough ciphertext material to derive the epoch secrets and verify the Commit, but
+does not necessarily need every HPKE public key referenced by the path. Such a
+recipient can process the Commit, receive subsequent MLS messages, and send
+application messages, but might not be able to construct its own Commit with an
+update path until it resolves additional HPKEPublicKeyRefs. To make the
+recipient immediately update-capable, the DS MAY include any updated HPKE
+public keys in the recipient's copath that the recipient cannot derive from its
+retained path secret. In a full tree with no blank nodes, this is one HPKE
+public key for each non-committing recipient.
+
 A recipient processes a SlimCommitMessage by:
 
-1. Resolving the HPKECiphertextRefs required for the recipient, and any
-   HPKEPublicKeyRefs that are functionally needed, per {{large-object-carrier}}.
-2. If SlimCommitFramedContentAuthData contains a signature, verifying it per
-   {{!RFC9420}} using SlimCommitFramedContentTBS. Otherwise, verifying the
-   SlimLeafNode signature and OuterUpdateHash per {{single-sig-commits}}.
+1. Resolving the HPKECiphertextRefs and SignatureRefs required for the
+   recipient, and any HPKEPublicKeyRefs that are functionally needed, per
+   {{large-object-carrier}}.
+2. If SlimCommitFramedContentAuthData contains a `signature_ref`, resolving and
+   verifying the referenced signature per {{!RFC9420}} using
+   SlimCommitFramedContentTBS. Otherwise, verifying the SlimLeafNode signature
+   and OuterUpdateHash per {{single-sig-commits}}.
 3. Decrypting the resolved HPKECiphertext, deriving the path public keys, and
    verifying that the derived public keys hash to the authenticated
    HPKEPublicKeyRefs.
@@ -849,11 +984,16 @@ the context of a group with the `slim_mls` extension. A SlimMLS-aware sender
 MUST use `mls_slim_public_commit` or `mls_slim_private_commit` for any
 SlimCommit delivery in the context of a group with the `slim_mls` extension.
 
+SlimMLS does not define a distinct WireFormat for GroupInfo. A standalone
+GroupInfo in a SlimMLS group uses `mls_group_info` and carries its signature
+inline as in {{!RFC9420}}.
+
 # The slim_mls Extension {#slim-mls-extension}
 
 SlimMLS is signaled by a GroupContext extension named `slim_mls`. Presence
-of this extension in the GroupContext means that all wire formats within
-the group use SlimMLS replacements.
+of this extension in the GroupContext means that all wire formats within the
+group use SlimMLS replacements, subject to the GroupInfo exception in
+{{wire-formats}}.
 
 # The slim_ratchet_tree Extension {#slim-ratchet-tree-extension}
 
@@ -943,6 +1083,20 @@ cache by the tuple (reference type, ciphersuite hash function, reference value).
 The same underlying object yields different reference values under different
 hash functions, and a cached object MUST NOT be treated as authoritative across
 ciphersuites whose hash functions differ.
+
+SlimKeyPackage batch signatures ({{slim-key-package}}) replace independent
+LeafNode signatures with one signature over a Merkle root. A recipient MUST
+verify both the Merkle inclusion proof and the batch signature before treating
+the SlimLeafNodeTBS as authenticated. The signed SlimKeyPackageBatchTBS binds
+the ciphersuite, tree size, Merkle root, and SignaturePublicKeyRef. Together
+with the SignWithLabel label and the Merkle leaf and parent hash labels, this
+prevents a valid batch signature from being replayed across protocols,
+ciphersuites, or signing keys.
+
+All SlimKeyPackages that share the same `batch_signature_ref` are linkable as
+members of the same publication batch. Deployments that consider this
+linkability sensitive can reduce batch sizes or publish independently signed
+batches.
 
 SlimWelcome ({{slim-welcome}}) introduces two confidentiality changes
 relative to the {{!RFC9420}} Welcome:
