@@ -55,10 +55,9 @@ This document defines SlimMLS, an extension to the Messaging Layer Security
 groups and makes MLS more flexible in server assisted deployments. SlimMLS's
 main use-case is for groups with post-quantum ciphersuites. SlimMLS replaces
 large objects like HPKE public keys, signature public keys, credentials,
-HPKE ciphertexts, and most signatures with hash references. GroupInfo
-signatures are retained inline. The large objects themselves are obtained by
-clients as needed, either from a message-specific carrier, a local cache, or an
-application-specific fetch mechanism. SlimMLS also defines SlimWelcomes, which
+HPKE ciphertexts, and signatures with hash references. The large objects
+themselves are obtained by clients as needed, either from a message-specific
+carrier, a local cache, or an application-specific fetch mechanism. SlimMLS also defines SlimWelcomes, which
 apply the partial-commit construction to Welcome messages so that recipients
 need only download the HPKE ciphertext intended for them.
 
@@ -74,17 +73,16 @@ storage.
 
 SlimMLS reduces this overhead by applying a single uniform technique: wherever a
 large object appears inside a structure, it is replaced by a hash reference to
-that object, except for the GroupInfo signatures described in
-{{slim-structs}}. Recipients retrieve the actual objects out-of-band as needed.
+that object. Recipients retrieve the actual objects out-of-band as needed.
 Because the binding to signed and transcript-hashed structures is preserved by
 the hash, an untrusted Delivery Service (DS) can selectively fan out large
 objects to the clients that need them, omit objects a client already has, or
 rewrite the retrieval channel without compromising authenticity. In turn,
 clients can selectively fetch objects that they are missing.
 
-This pattern is not new in MLS: {{!RFC9420}} already uses RefHash-based
-references such as KeyPackageRef and ProposalRef. SlimMLS generalizes
-the mechanism.
+This pattern is analogous to the RefHash-based references already used in
+{{!RFC9420}}, such as KeyPackageRef and ProposalRef. SlimMLS generalizes the
+mechanism.
 
 [\[TODO: quantify wire and storage savings for representative PQ
 ciphersuites once the specification stabilizes.\]\]
@@ -103,8 +101,7 @@ extension ({{slim-mls-extension}}). In such a group:
 
 - Every place where {{!RFC9420}} embeds an HPKEPublicKey, SignaturePublicKey,
   Credential, HPKECiphertext, or signature is replaced with a hash reference of
-  the corresponding type, except that GroupInfo signatures remain inline as in
-  {{!RFC9420}}.
+  the corresponding type.
 - The referenced large objects are retrieved per {{large-object-retrieval}} if
   and when necessary.
 
@@ -133,9 +130,9 @@ For a SlimKeyPackageRef, the value input is the TLS-encoded SlimKeyPackage.
 SlimKeyPackageRef is used to identify the recipient of a SlimWelcome; it is not
 a large-object reference and has no corresponding LargeObjectCarrier entry.
 
-SignatureRef is used for signature fields that appear in slim structures, except
-GroupInfo signatures, and for detached signatures referenced by slim structures,
-such as the SlimKeyPackage batch signature ({{slim-key-package}}).
+SignatureRef is used for signature fields that appear in slim structures and
+for detached signatures referenced by slim structures, such as the
+SlimKeyPackage batch signature ({{slim-key-package}}).
 
 # SlimMLS Structs {#slim-structs}
 
@@ -148,11 +145,6 @@ by that equivalent.
 Tree hashes and parent hashes are likewise computed over the slim encodings, so
 the reference values stand in for the corresponding large objects in these
 computations.
-
-GroupInfo is an exception to signature replacement. A GroupInfo in a SlimMLS
-group can carry slim extensions such as `slim_ratchet_tree`, but its signature
-field remains the inline {{!RFC9420}} signature and is not replaced with a
-SignatureRef.
 
 The exceptions to the rule are the Welcome, KeyPackage, and Commit structs,
 which are replaced by the SlimWelcome struct ({{slim-welcome}}), the
@@ -180,7 +172,7 @@ nested struct.
 | ParentNode                | HPKEPublicKey                                             | HPKEPublicKeyRef                                    |
 | ParentHashInput           | HPKEPublicKey                                             | HPKEPublicKeyRef                                    |
 | UpdatePathNode            | HPKEPublicKey; HPKECiphertext (vector)  | HPKEPublicKeyRef; HPKECiphertextRef (vector)            |
-| Signature-bearing structs except GroupInfo | signature                                     | SignatureRef                                       |
+| Signature-bearing structs | signature                                                                  | SignatureRef                                       |
 | Add proposal              | KeyPackage                                                | SlimKeyPackage                                     |
 | Update proposal           | LeafNode                                                  | SlimLeafNode                                       |
 | ratchet_tree extension    | LeafNode, ParentNode                                      | slim_ratchet_tree extension with SlimLeafNode, SlimParentNode |
@@ -208,15 +200,25 @@ ParentHashInput defined in {{Section 7.9 of !RFC9420}}.
 The exact TLS presentation of each other slim struct is obtained by mechanical
 substitution against {{!RFC9420}} and is not repeated here.
 
+MLS operations such as signing, verifying, and hashing are performed on slim
+structs.
+
 \[\[TODO: provide explicit TLS presentations for each slim variant in a
 later revision.\]\]
 
 # Large Object Retrieval {#large-object-retrieval}
 
 References to large objects in SlimMLS structures, in their associated companion
-structures (e.g., SlimUpdatePath, {{slim-commit}}), and in GroupInfo extensions
-defined by this document MUST be resolved to the corresponding large objects
-when necessary for MLS operations or validation checks.
+structures (e.g., SlimUpdatePath, {{slim-commit}}), and in SlimGroupInfo
+extensions defined by this document MUST be resolved to the corresponding large
+objects when necessary for MLS operations or validation checks.
+
+For example, a client joining an MLS group via a Welcome will need to resolve
+the signature referenced in the SlimGroupInfo for verification, along with the
+signatures, SignaturePublicKeys and Credentials in all leaf nodes, but it
+doesn't need to resolve all HPKEPublicKeys in the ratchet tree to join the
+group. When the client decides to update its leaf, it must resolve the
+HPKEPublicKeys necessary to encrypt the commit's PathSecrets, but no others.
 
 SlimMLS defines three retrieval channels:
 
@@ -479,9 +481,9 @@ e.g., to deliver to each recipient only its own entry.
 
 If the sender omits the `group_info` field (presence octet 0), the DS MUST
 populate it with a plaintext WelcomeGroupInfo before delivering the SlimWelcome
-to a recipient ({{welcome-group-info}}). In this mode, the GroupInfo used by the
-sender to encrypt the SlimEncryptedGroupSecrets and the GroupInfo populated by
-the DS MUST be byte-for-byte identical.
+to a recipient ({{welcome-group-info}}). In this mode, the SlimGroupInfo used
+by the sender to encrypt the SlimEncryptedGroupSecrets and the SlimGroupInfo
+populated by the DS MUST be byte-for-byte identical.
 
 A DS that supplies large objects alongside a SlimWelcome can distinguish
 between basic-processing delivery and update-capable delivery. Basic-processing
@@ -524,15 +526,16 @@ A recipient locates the entry intended for it by matching either its own
 SlimKeyPackageRef or its leaf in the group's ratchet tree via the leaf index.
 
 The `leaf_node_index` recipient type MUST be used only when the
-SlimEncryptedGroupSecrets is encrypted using a plaintext GroupInfo as context
-and the delivered SlimWelcome carries `WelcomeGroupInfo.info_type = plaintext`.
-Otherwise, the sender MUST use `slim_key_package_ref`.
+SlimEncryptedGroupSecrets is encrypted using a plaintext SlimGroupInfo as
+context and the delivered SlimWelcome carries
+`WelcomeGroupInfo.info_type = plaintext`. Otherwise, the sender MUST use
+`slim_key_package_ref`.
 
 ## WelcomeGroupInfo {#welcome-group-info}
 
 WelcomeGroupInfo is a tagged union over two presentations of the
-GroupInfo: the encrypted form used by {{!RFC9420}} or a plaintext
-form:
+SlimGroupInfo: an encrypted form analogous to the {{!RFC9420}} Welcome's
+`encrypted_group_info` field, or a plaintext form:
 
 ~~~
 enum {
@@ -548,27 +551,27 @@ struct {
     case encrypted:
       opaque encrypted_group_info<V>;
     case plaintext:
-      GroupInfo group_info;
+      SlimGroupInfo group_info;
   };
 } WelcomeGroupInfo;
 ~~~
 
-The `encrypted` variant is identical to the `encrypted_group_info`
-field of the {{!RFC9420}} Welcome, encrypted under a key derived from
-the joiner secret. The `plaintext` variant carries the GroupInfo in
-the clear.
+The `encrypted` variant carries a SlimGroupInfo encrypted under a key derived
+from the joiner secret, in the same manner as the `encrypted_group_info` field
+of the {{!RFC9420}} Welcome. The `plaintext` variant carries the SlimGroupInfo
+in the clear.
 
 The HPKE context used to encrypt and decrypt
-`SlimEncryptedGroupSecrets.encrypted_group_secrets` depends on the GroupInfo
+`SlimEncryptedGroupSecrets.encrypted_group_secrets` depends on the SlimGroupInfo
 presentation. For the `encrypted` variant, the context is the
 `encrypted_group_info` value, as in {{!RFC9420}}. For the `plaintext` variant,
 and for SlimWelcomes sent with `group_info` absent, the context is the
-TLS-encoded GroupInfo.
+TLS-encoded SlimGroupInfo.
 
 The outer `optional<WelcomeGroupInfo>` in the SlimWelcome additionally allows
-the sender to omit the GroupInfo. This mode is intended for server-assisted
-deployments where the sender and recipient can obtain the exact GroupInfo by
-some channel other than the SlimWelcome.
+the sender to omit the SlimGroupInfo. This mode is intended for server-assisted
+deployments where the sender and recipient can obtain the exact SlimGroupInfo
+by some channel other than the SlimWelcome.
 
 A recipient that receives a SlimWelcome whose `group_info` field is
 absent MUST consider the SlimWelcome invalid.
@@ -929,7 +932,7 @@ up to the application to implement.
 
 SlimMLS clients need the slim public tree for MLS tree computations, but they
 do not need to fetch every large object referenced by that tree. Tree hashes,
-parent hashes, and GroupInfo validation are computed over SlimLeafNode and
+parent hashes, and SlimGroupInfo validation are computed over SlimLeafNode and
 SlimParentNode encodings, so the references to public keys and credentials are
 the values committed to by those computations. A client can therefore defer
 fetching large objects that are not functionally needed, such as HPKE public
@@ -963,8 +966,8 @@ client thus avoids downloading stale, intermediate large objects.
 
 SlimMLS introduces new WireFormat values only where a recipient cannot know
 from context that SlimMLS framing is in use, or where SlimMLS changes the
-message framing. This applies to SlimKeyPackages, SlimWelcomes, and SlimCommit
-messages.
+message framing. This applies to SlimKeyPackages, SlimWelcomes, SlimGroupInfos,
+and SlimCommit messages.
 
 MLSMessage is correspondingly extended with the following new cases:
 
@@ -979,6 +982,7 @@ struct {
     case mls_group_info:        GroupInfo      group_info;
     case mls_key_package:       KeyPackage     key_package;
     case mls_slim_welcome:      SlimWelcome    slim_welcome;
+    case mls_slim_group_info:   SlimGroupInfo  slim_group_info;
     case mls_slim_key_package:  SlimKeyPackage slim_key_package;
     case mls_slim_public_commit:
       SlimPublicCommitMessage   slim_public_commit;
@@ -991,19 +995,15 @@ struct {
 A SlimMLS-aware sender MAY use `mls_slim_key_package` for any SlimKeyPackage
 publication and MUST use `mls_slim_welcome` for any SlimWelcome delivery in
 the context of a group with the `slim_mls` extension. A SlimMLS-aware sender
-MUST use `mls_slim_public_commit` or `mls_slim_private_commit` for any
-SlimCommit delivery in the context of a group with the `slim_mls` extension.
-
-SlimMLS does not define a distinct WireFormat for GroupInfo. A standalone
-GroupInfo in a SlimMLS group uses `mls_group_info` and carries its signature
-inline as in {{!RFC9420}}.
+MUST use `mls_slim_group_info` for any standalone SlimGroupInfo and
+`mls_slim_public_commit` or `mls_slim_private_commit` for any SlimCommit
+delivery in the context of a group with the `slim_mls` extension.
 
 # The slim_mls Extension {#slim-mls-extension}
 
 SlimMLS is signaled by a GroupContext extension named `slim_mls`. Presence
 of this extension in the GroupContext means that all wire formats within the
-group use SlimMLS replacements, subject to the GroupInfo exception in
-{{wire-formats}}.
+group use SlimMLS replacements.
 
 # The slim_ratchet_tree Extension {#slim-ratchet-tree-extension}
 
@@ -1107,18 +1107,19 @@ batches.
 SlimWelcome ({{slim-welcome}}) introduces two confidentiality changes
 relative to the {{!RFC9420}} Welcome:
 
-- When `WelcomeGroupInfo.info_type` is `plaintext`, the GroupInfo is visible to
-  the DS and to anyone observing the SlimWelcome on the wire. This variant is
-  appropriate only in deployments where the GroupInfo is not considered
-  confidential with respect to those parties (e.g., where the DS already
-  maintains group state).
+- When `WelcomeGroupInfo.info_type` is `plaintext`, the SlimGroupInfo is
+  visible to the DS and to anyone observing the SlimWelcome on the wire. This
+  variant is appropriate only in deployments where the SlimGroupInfo is not
+  considered confidential with respect to those parties (e.g., where the DS
+  already maintains group state).
 - When `SlimWelcome.group_info` is absent (presence octet 0), the DS
   chooses which WelcomeGroupInfo a joiner ultimately receives.
 
-In both cases authenticity is unchanged: the joiner MUST verify the
-GroupInfo signature exactly as under {{!RFC9420}}, and a SlimWelcome
-that reaches a recipient with `group_info` still absent MUST be
-rejected ({{welcome-group-info}}).
+In both cases authenticity is unchanged: the joiner MUST resolve the
+SlimGroupInfo's signature reference per {{large-object-retrieval}} and verify
+the underlying signature as under {{!RFC9420}}, and a SlimWelcome that reaches
+a recipient with `group_info` still absent MUST be rejected
+({{welcome-group-info}}).
 
 # IANA Considerations
 
@@ -1146,6 +1147,7 @@ Formats" registry defined in {{Section 17.2 of !RFC9420}}:
 | Value | Name                  | Recommended | Reference |
 |-------|-----------------------|-------------|-----------|
 | TBD   | mls_slim_welcome      | Y           | RFC XXXX  |
+| TBD   | mls_slim_group_info   | Y           | RFC XXXX  |
 | TBD   | mls_slim_key_package  | Y           | RFC XXXX  |
 | TBD   | mls_slim_public_commit | Y          | RFC XXXX  |
 | TBD   | mls_slim_private_commit | Y         | RFC XXXX  |
