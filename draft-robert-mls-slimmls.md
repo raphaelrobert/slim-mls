@@ -575,12 +575,10 @@ absent MUST consider the SlimWelcome invalid.
 
 # SlimCommit {#slim-commit}
 
-SlimCommit applies the split-delivery goal of
-{{?I-D.mularczyk-mls-splitcommit}} to SlimMLS Commits: the DS can deliver to
-each recipient only the HPKECiphertextRefs and HPKECiphertexts intended for that
-recipient. It also applies the approach by
-{{?I-D.kohbrok-mls-fewer-signatures}} to save one signature in case commits
-contain a path, but do not rotate the sender's signature key.
+SlimCommit enables split delivery for SlimMLS Commits. The DS can deliver to
+each recipient only the HPKECiphertextRefs and HPKECiphertexts intended for
+that recipient. It also saves one signature when a commit contains a path but
+does not rotate the sender's signature key.
 
 A SlimMLS-aware sender MUST use a SlimCommit in place of an MLS Commit in a
 group with the `slim_mls` extension.
@@ -594,9 +592,8 @@ hash, the membership tag, or the framing signature.
 A SlimCommit carries the normal {{!RFC9420}} confirmation tag. When the
 single-signature construction of {{single-sig-commits}} applies, the
 authentication data contains the confirmation tag but omits the signature
-reference field, as in {{?I-D.kohbrok-mls-fewer-signatures}}. Otherwise, the
-authentication data contains both the confirmation tag and a reference to the
-framing signature.
+reference field. Otherwise, the authentication data contains both the
+confirmation tag and a reference to the framing signature.
 
 ~~~
 struct {
@@ -783,10 +780,9 @@ between the two is the cardinality of the HPKECiphertextRef vectors in `path`.
 
 ## Single Signature Construction {#single-sig-commits}
 
-When a SlimCommit is sent by a member, contains a SlimLeafNode, and the sender's
-signature key is unchanged, the construction of
-{{?I-D.kohbrok-mls-fewer-signatures}} applies: the framing signature is omitted,
-and authenticity is provided by the SlimLeafNode's own signature in combination
+When a SlimCommit is sent by a member, contains a SlimLeafNode, and the
+sender's signature key is unchanged, the framing signature is omitted, and
+authenticity is provided by the SlimLeafNode's own signature in combination
 with an OuterUpdateHash component placed in the SlimLeafNode's
 `app_data_dictionary` extension. The confirmation tag is still present and
 processed as in {{!RFC9420}}.
@@ -916,8 +912,7 @@ SlimCommitConfirmedTranscriptHashInput. The interim transcript hash is computed
 from the confirmed transcript hash and the confirmation tag as in {{!RFC9420}}.
 
 DSs that do not maintain the ratchet tree cannot perform the per-recipient
-reduction described above. Strategies for such deployments are out of scope, as
-in {{?I-D.mularczyk-mls-splitcommit}}.
+reduction described above. Strategies for such deployments are out of scope.
 
 # Optimizing Payload Sizes
 
