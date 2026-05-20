@@ -33,58 +33,61 @@ author:
     organization: Phoenix R&D
     email: konrad@ratchet.ing
 
-informative:
-  SAIK:
-    title: "Server-Aided Continuous Group Key Agreement"
-    author:
-      - ins: J. Alwen
-      - ins: D. Hartmann
-      - ins: E. Kiltz
-      - ins: M. Mularczyk
-    date: 2022
-    seriesinfo:
-      "ACM CCS": "2022, pp. 69-82"
-    target: https://eprint.iacr.org/2021/1456
-
 ...
 
 --- abstract
 
 This document defines SlimMLS, an extension to the Messaging Layer Security
-(MLS) protocol that reduces the wire and per-client storage overhead of MLS
-groups and makes MLS more flexible in server assisted deployments. SlimMLS's
-main use-case is for groups with post-quantum ciphersuites. SlimMLS replaces
-large objects like HPKE public keys, signature public keys, credentials,
-HPKE ciphertexts, and most signatures with hash references. GroupInfo
-signatures are retained inline. The large objects themselves are obtained by
-clients as needed, either from a message-specific carrier, a local cache, or an
-application-specific fetch mechanism. SlimMLS also defines SlimWelcomes, which
-apply the partial-commit construction to Welcome messages so that recipients
-need only download the HPKE ciphertext intended for them.
+(MLS) protocol for reducing wire and per-client storage overhead in groups that
+use ciphersuites with large public keys, ciphertexts, signatures, and
+credentials. SlimMLS replaces many large objects that appear in MLS
+authenticated or transcript-hashed structures with typed hash references.
+Clients resolve the referenced objects only when needed, using a per-message
+carrier, a local cache, or an application-specific retrieval channel. The
+extension defines slim variants of KeyPackage, Commit, Welcome, GroupInfo, and
+message framing. When placing a signature outside an encrypted envelope would
+reveal the signer, SlimMLS keeps the signature inside the ciphertext.
 
 --- middle
 
 # Introduction
 
-Post-quantum (PQ) signature and KEM primitives have substantially larger keys,
-ciphertexts, and signatures than their classical counterparts. In an MLS group
-{{!RFC9420}} this manifests as significantly larger LeafNodes, parent nodes,
-Welcomes, and Commits. The blow-up is felt both on the wire and in client
-storage.
+Post-quantum (PQ) signature and key encapsulation mechanism (KEM) primitives can
+have substantially larger keys, ciphertexts, and signatures than their
+classical counterparts. Large credentials can create similar pressure, including
+in deployments that do not otherwise use large ciphersuite objects. In an MLS
+group {{!RFC9420}}, these values appear as larger LeafNodes, parent nodes,
+Welcomes, Commits, GroupInfos, and messages. The increase is visible both on
+the wire and in client storage.
 
-SlimMLS reduces this overhead by applying a single uniform technique: wherever a
-large object appears inside a structure, it is replaced by a hash reference to
-that object, except for the GroupInfo signatures described in
-{{slim-structs}}. Recipients retrieve the actual objects out-of-band as needed.
-Because the binding to signed and transcript-hashed structures is preserved by
-the hash, an untrusted Delivery Service (DS) can selectively fan out large
-objects to the clients that need them, omit objects a client already has, or
-rewrite the retrieval channel without compromising authenticity. In turn,
-clients can selectively fetch objects that they are missing.
+In MLS, many of these values are embedded in structures that are signed,
+covered by tree hashes or parent hashes, or fed into transcript hashes. A
+Delivery Service (DS) can already choose how to route messages, but it cannot
+remove or replace authenticated bytes without invalidating the object. This
+limits cache-aware delivery, server-assisted fanout, and operation with clients
+that hold only part of the group state.
 
-This pattern is not new in MLS: {{!RFC9420}} already uses RefHash-based
-references such as KeyPackageRef and ProposalRef. SlimMLS generalizes
-the mechanism.
+SlimMLS addresses this by separating object identity from object delivery. The
+authenticated or transcript-hashed structure carries a typed hash reference, and
+the referenced object is delivered through a per-message carrier, a local cache,
+or an application-specific retrieval channel. Recipients verify each object by
+recomputing the reference before using it.
+
+The main protocol changes are:
+
+* SlimKeyPackages replace KeyPackages and batch the signatures needed to
+  authenticate multiple LeafNodes.
+* SlimCommits carry commit content separately from update path delivery data, so
+  the Delivery Service can deliver only the ciphertexts each recipient needs.
+* SlimWelcomes adapt Welcome messages to slim KeyPackage references and
+  server-assisted GroupInfo delivery.
+* Slim message framing and SlimGroupInfo define when signatures are represented
+  by references and when the raw signature must remain inside encrypted
+  plaintext to avoid revealing the sender.
+
+This pattern is not new in MLS. {{!RFC9420}} already uses RefHash-based
+references such as KeyPackageRef and ProposalRef. SlimMLS generalizes the
+mechanism.
 
 [\[TODO: quantify wire and storage savings for representative PQ
 ciphersuites once the specification stabilizes.\]\]
@@ -101,10 +104,10 @@ This document uses the TLS presentation language and notation of
 A SlimMLS group is an MLS group whose GroupContext carries the `slim_mls`
 extension ({{slim-mls-extension}}). In such a group:
 
-- Every place where {{!RFC9420}} embeds an HPKEPublicKey, SignaturePublicKey,
-  Credential, HPKECiphertext, or signature is replaced with a hash reference of
-  the corresponding type, except that GroupInfo signatures remain inline as in
-  {{!RFC9420}}.
+- In structures derived by mechanical substitution, each HPKEPublicKey,
+  SignaturePublicKey, Credential, HPKECiphertext, or signature is replaced with
+  a hash reference of the corresponding type. Structures specified explicitly in
+  this document define their own replacements and exceptions.
 - The referenced large objects are retrieved per {{large-object-retrieval}} if
   and when necessary.
 
@@ -133,38 +136,72 @@ For a SlimKeyPackageRef, the value input is the TLS-encoded SlimKeyPackage.
 SlimKeyPackageRef is used to identify the recipient of a SlimWelcome; it is not
 a large-object reference and has no corresponding LargeObjectCarrier entry.
 
-SignatureRef is used for signature fields that appear in slim structures, except
-GroupInfo signatures, and for detached signatures referenced by slim structures,
-such as the SlimKeyPackage batch signature ({{slim-key-package}}).
+SignatureRef is used for signature fields that appear in slim structures unless
+this document requires the raw signature to remain inside an encrypted envelope.
+It is also used for detached signatures referenced by slim structures, such as
+the SlimKeyPackage batch signature ({{slim-key-package}}).
+
+Some signature fields use SignatureOrRef, whose variant is constrained by the
+wire envelope that carries the structure:
+
+~~~
+enum {
+  reserved(0),
+  signature(1),
+  signature_ref(2),
+  (255)
+} SignatureOrRefType;
+
+struct {
+  SignatureOrRefType signature_type;
+  select (SignatureOrRef.signature_type) {
+    case signature:
+      Signature signature;
+    case signature_ref:
+      SignatureRef signature_ref;
+  };
+} SignatureOrRef;
+~~~
+
+When `signature_type = signature_ref`, the raw signature bytes are resolved per
+{{large-object-retrieval}}. When `signature_type = signature`, the raw
+signature bytes are carried inline and MUST NOT be sent outside the encrypted
+envelope in a LargeObjectCarrier.
 
 # SlimMLS Structs {#slim-structs}
 
-For every {{!RFC9420}} struct that embeds an HPKEPublicKey, SignaturePublicKey,
-Credential, HPKECiphertext, or signature, SlimMLS defines a corresponding
-"Slim*" struct that is identical to the original except that each occurrence of
-a large object is replaced by the reference type from {{ref-types}} and that
-each occurrence of a struct for which there exists a Slim equivalent is replaced
-by that equivalent.
+For every {{!RFC9420}} struct not given an explicit replacement in this document
+that embeds an HPKEPublicKey, SignaturePublicKey, Credential, HPKECiphertext, or
+signature, SlimMLS defines a corresponding "Slim*" struct that is identical to
+the original except that each occurrence of a large object is replaced by the
+reference type from {{ref-types}} and that each occurrence of a struct for which
+there exists a Slim equivalent is replaced by that equivalent.
 Tree hashes and parent hashes are likewise computed over the slim encodings, so
 the reference values stand in for the corresponding large objects in these
 computations.
 
-GroupInfo is an exception to signature replacement. A GroupInfo in a SlimMLS
-group can carry slim extensions such as `slim_ratchet_tree`, but its signature
-field remains the inline {{!RFC9420}} signature and is not replaced with a
-SignatureRef.
+The following signatures use SignatureOrRef because their correct presentation
+depends on whether the signature is carried inside an encrypted envelope:
 
-The exceptions to the rule are the Welcome, KeyPackage, and Commit structs,
-which are replaced by the SlimWelcome struct ({{slim-welcome}}), the
+- an encrypted GroupInfo carried in a SlimWelcome, whose signature remains
+  inline inside the encrypted GroupInfo plaintext, and
+- a SlimPrivateMessage framing signature, which remains inline inside the
+  encrypted SlimPrivateMessageContent.
+
+When either signature is carried inside an encrypted envelope, it MUST use the
+`signature` variant.
+
+Welcome, KeyPackage, and Commit are not derived by mechanical substitution.
+They are replaced by the SlimWelcome struct ({{slim-welcome}}), the
 SlimKeyPackage struct ({{slim-key-package}}), and the SlimCommit struct
-({{slim-commit}}) respectively. As a consequence, the UpdatePath struct does
-not appear in a SlimMLS group; its contents are split between SlimCommit
-(which carries the committer's SlimLeafNode) and SlimUpdatePath (which
-carries the path nodes).
+({{slim-commit}}) respectively. As a consequence, the UpdatePath struct does not
+appear in a SlimMLS group. Its contents are split between SlimCommit (which
+carries the committer's SlimLeafNode) and SlimUpdatePath (which carries the path
+nodes).
 
 In a SlimMLS group, the slim struct is sent on the wire wherever {{!RFC9420}}
-would specify the original struct. Validation of {{!RFC9420}} apply in the same
-way. References are only replaced by the corresponding large objects if
+would specify the original struct. Validation rules of {{!RFC9420}} apply in
+the same way. References are only replaced by the corresponding large objects if
 functionally necessary (e.g. to verify a signature, encrypt a ciphertext, or
 retrieve referenced signature bytes).
 
@@ -179,8 +216,8 @@ nested struct.
 | LeafNode                  | HPKEPublicKey, SignaturePublicKey, Credential, signature  | HPKEPublicKeyRef, SignaturePublicKeyRef, CredentialRef, SignatureRef |
 | ParentNode                | HPKEPublicKey                                             | HPKEPublicKeyRef                                    |
 | ParentHashInput           | HPKEPublicKey                                             | HPKEPublicKeyRef                                    |
-| UpdatePathNode            | HPKEPublicKey; HPKECiphertext (vector)  | HPKEPublicKeyRef; HPKECiphertextRef (vector)            |
-| Signature-bearing structs except GroupInfo | signature                                     | SignatureRef                                       |
+| UpdatePathNode            | HPKEPublicKey, HPKECiphertext (vector)  | HPKEPublicKeyRef, HPKECiphertextRef (vector)            |
+| Signature-bearing structs except SignatureOrRef cases | signature                         | SignatureRef                                       |
 | Add proposal              | KeyPackage                                                | SlimKeyPackage                                     |
 | Update proposal           | LeafNode                                                  | SlimLeafNode                                       |
 | ratchet_tree extension    | LeafNode, ParentNode                                      | slim_ratchet_tree extension with SlimLeafNode, SlimParentNode |
@@ -210,6 +247,41 @@ substitution against {{!RFC9420}} and is not repeated here.
 
 \[\[TODO: provide explicit TLS presentations for each slim variant in a
 later revision.\]\]
+
+## SlimGroupInfo {#slim-group-info}
+
+SlimGroupInfo is the slim replacement for the {{!RFC9420}} GroupInfo struct. It
+uses the same fields and verification rules as GroupInfo, except that
+GroupInfo extensions use SlimMLS replacements and the signature is represented
+as SignatureOrRef.
+
+~~~
+struct {
+  GroupContext group_context;
+  Extension extensions<V>;
+  MAC confirmation_tag;
+  uint32 signer;
+} SlimGroupInfoTBS;
+
+struct {
+  GroupContext group_context;
+  Extension extensions<V>;
+  MAC confirmation_tag;
+  uint32 signer;
+
+  /*
+    SignWithLabel(., "GroupInfoTBS", SlimGroupInfoTBS)
+  */
+  SignatureOrRef signature;
+} SlimGroupInfo;
+~~~
+
+The signature is computed and verified as in {{!RFC9420}}, except that the
+to-be-signed content is SlimGroupInfoTBS. A standalone SlimGroupInfo, or a
+SlimGroupInfo carried in `WelcomeGroupInfo.info_type = plaintext`, MUST use
+`signature_type = signature_ref`. A SlimGroupInfo encrypted into
+`WelcomeGroupInfo.info_type = encrypted` MUST use `signature_type = signature`
+so that the raw signature is protected by the SlimWelcome encryption.
 
 # Large Object Retrieval {#large-object-retrieval}
 
@@ -268,7 +340,7 @@ struct {
 
 The carrier is NOT part of the signed structure. The DS MAY add, remove,
 reorder, or substitute entries on a per-recipient basis, e.g., to omit objects
-the recipient already has cached, or to distribute partial-commit ciphertexts
+the recipient already has cached, or to distribute SlimUpdatePath ciphertexts
 (see {{slim-commit}}). The LargeObjectCarrier is optional in the SlimMLS wire
 protocol. The DS MAY reject a message based on a missing LargeObjectCarrier, or
 on a LargeObjectCarrier that is missing the large objects that clients will need
@@ -283,6 +355,13 @@ the same client. The signature around the KeyPackage is omitted, and the
 per-KeyPackage LeafNode signature is replaced by a detached batch signature over
 the root of a Merkle tree. The leaves of this tree are the SlimLeafNodeTBS
 values of the SlimKeyPackages in the batch.
+
+In a SlimMLS group, an {{!RFC9420}} KeyPackage MUST NOT be used to add a new
+member: Add proposals MUST carry a SlimKeyPackage, and standalone KeyPackage
+publication MUST use the `mls_slim_key_package` wire format
+({{wire-formats}}). A recipient MUST reject any Add proposal or wire-format
+message carrying an {{!RFC9420}} KeyPackage in the context of a group with the
+`slim_mls` extension.
 
 `SlimLeafNodeTBS` denotes the LeafNodeTBS input defined by {{!RFC9420}} after
 applying the slim substitutions in {{slim-structs}}. It is the unsigned part of
@@ -454,8 +533,8 @@ SlimWelcome makes two changes relative to the {{!RFC9420}} Welcome:
    identified either by SlimKeyPackageRef or by leaf index.
 2. The `encrypted_group_info` field is replaced by an
    `optional<WelcomeGroupInfo>` ({{welcome-group-info}}), where
-   WelcomeGroupInfo is a tagged union over the {{!RFC9420}}
-   encrypted form and a plaintext form.
+   WelcomeGroupInfo is a tagged union over an encrypted form and a
+   plaintext form.
 
 With the exception of changes described in this section, SlimWelcomes are
 processed just like regular Welcome messages.
@@ -481,7 +560,7 @@ If the sender omits the `group_info` field (presence octet 0), the DS MUST
 populate it with a plaintext WelcomeGroupInfo before delivering the SlimWelcome
 to a recipient ({{welcome-group-info}}). In this mode, the GroupInfo used by the
 sender to encrypt the SlimEncryptedGroupSecrets and the GroupInfo populated by
-the DS MUST be byte-for-byte identical.
+the DS MUST be byte-for-byte identical SlimGroupInfo objects.
 
 A DS that supplies large objects alongside a SlimWelcome can distinguish
 between basic-processing delivery and update-capable delivery. Basic-processing
@@ -524,15 +603,15 @@ A recipient locates the entry intended for it by matching either its own
 SlimKeyPackageRef or its leaf in the group's ratchet tree via the leaf index.
 
 The `leaf_node_index` recipient type MUST be used only when the
-SlimEncryptedGroupSecrets is encrypted using a plaintext GroupInfo as context
-and the delivered SlimWelcome carries `WelcomeGroupInfo.info_type = plaintext`.
-Otherwise, the sender MUST use `slim_key_package_ref`.
+SlimEncryptedGroupSecrets is encrypted using a plaintext SlimGroupInfo as
+context and the delivered SlimWelcome carries
+`WelcomeGroupInfo.info_type = plaintext`. Otherwise, the sender MUST use
+`slim_key_package_ref`.
 
 ## WelcomeGroupInfo {#welcome-group-info}
 
 WelcomeGroupInfo is a tagged union over two presentations of the
-GroupInfo: the encrypted form used by {{!RFC9420}} or a plaintext
-form:
+SlimGroupInfo: an encrypted form or a plaintext form:
 
 ~~~
 enum {
@@ -548,22 +627,27 @@ struct {
     case encrypted:
       opaque encrypted_group_info<V>;
     case plaintext:
-      GroupInfo group_info;
+      SlimGroupInfo group_info;
   };
 } WelcomeGroupInfo;
 ~~~
 
-The `encrypted` variant is identical to the `encrypted_group_info`
-field of the {{!RFC9420}} Welcome, encrypted under a key derived from
-the joiner secret. The `plaintext` variant carries the GroupInfo in
-the clear.
+The `encrypted` variant is encrypted under a key derived from the joiner secret,
+as in the `encrypted_group_info` field of the {{!RFC9420}} Welcome. Its
+plaintext is a SlimGroupInfo whose SignatureOrRef uses
+`signature_type = signature`. A sender MUST NOT encrypt a SlimGroupInfo with
+`signature_type = signature_ref` into this field.
+
+The `plaintext` variant carries a SlimGroupInfo in the clear. Its
+SignatureOrRef MUST use `signature_type = signature_ref`, which is resolved per
+{{large-object-retrieval}} before signature verification.
 
 The HPKE context used to encrypt and decrypt
 `SlimEncryptedGroupSecrets.encrypted_group_secrets` depends on the GroupInfo
 presentation. For the `encrypted` variant, the context is the
 `encrypted_group_info` value, as in {{!RFC9420}}. For the `plaintext` variant,
 and for SlimWelcomes sent with `group_info` absent, the context is the
-TLS-encoded GroupInfo.
+TLS-encoded SlimGroupInfo.
 
 The outer `optional<WelcomeGroupInfo>` in the SlimWelcome additionally allows
 the sender to omit the GroupInfo. This mode is intended for server-assisted
@@ -583,17 +667,17 @@ does not rotate the sender's signature key.
 A SlimMLS-aware sender MUST use a SlimCommit in place of an MLS Commit in a
 group with the `slim_mls` extension.
 
-A SlimCommit uses the `commit` ContentType, but is carried in the dedicated
-`mls_slim_public_commit` and `mls_slim_private_commit` WireFormats
-({{wire-formats}}). These wire formats allow the unsigned SlimUpdatePath to be
-carried alongside the framed SlimCommit without being included in the transcript
-hash, the membership tag, or the framing signature.
+A SlimCommit is carried in either a SlimPublicMessage or SlimPrivateMessage
+({{slim-framing}}). These message structures allow the unsigned SlimUpdatePath
+to be carried alongside the framed SlimCommit without being included in the
+transcript hash, the membership tag, or the framing signature.
 
-A SlimCommit carries the normal {{!RFC9420}} confirmation tag. When the
-single-signature construction of {{single-sig-commits}} applies, the
-authentication data contains the confirmation tag but omits the signature
-reference field. Otherwise, the authentication data contains both the
-confirmation tag and a reference to the framing signature.
+A SlimCommit carries the normal {{!RFC9420}} confirmation tag in its
+SlimFramedContentAuthData. When the single-signature construction of
+{{single-sig-commits}} applies, the authentication data contains the
+confirmation tag but omits the framing signature field. Otherwise, the
+authentication data contains the confirmation tag and a SignatureOrRef whose
+variant is determined by the message envelope.
 
 ~~~
 struct {
@@ -638,13 +722,22 @@ recipient validates them by decrypting the referenced HPKECiphertext, deriving
 the path public keys, checking that the derived public keys hash to the
 authenticated HPKEPublicKeyRefs, and verifying the Commit confirmation tag.
 
-## SlimCommit Framing {#slim-commit-framing}
+## Slim Framing {#slim-framing}
 
-SlimCommit uses dedicated public and private message structures. They are the
-same as {{!RFC9420}} PublicMessage and PrivateMessage, except that the commit
-content is a SlimCommit, the authentication data is a
-SlimCommitFramedContentAuthData, and the optional SlimUpdatePath is carried
-outside the authenticated content.
+In a SlimMLS group, public and private message framing uses dedicated SlimMLS
+structures. They are the same as {{!RFC9420}} PublicMessage and PrivateMessage,
+except that:
+
+- the framed content carries a SlimCommit or SlimProposal where {{!RFC9420}}
+  carries a Commit or Proposal,
+- the authentication data is a SlimFramedContentAuthData, and
+- when the content is a SlimCommit, the unsigned SlimUpdatePath is carried
+  alongside the framed content, outside the authenticated content.
+
+SlimProposal is the slim variant of the {{!RFC9420}} Proposal struct obtained
+by the mechanical-substitution rule of {{slim-structs}}: an Add proposal
+carries a SlimKeyPackage and an Update proposal carries a SlimLeafNode. Other
+proposal variants are unchanged.
 
 ~~~
 struct {
@@ -654,31 +747,40 @@ struct {
   opaque authenticated_data<V>;
 
   ContentType content_type;
-  select (SlimCommitFramedContent.content_type) {
+  select (SlimFramedContent.content_type) {
+    case application:
+      opaque application_data<V>;
+    case proposal:
+      SlimProposal proposal;
     case commit:
       SlimCommit commit;
   };
-} SlimCommitFramedContent;
+} SlimFramedContent;
 
 struct {
   /*
-    SignWithLabel(., "FramedContentTBS",
-      SlimCommitFramedContentTBS)
+    SignWithLabel(., "FramedContentTBS", SlimFramedContentTBS)
   */
-  optional<SignatureRef> signature_ref;
+  optional<SignatureOrRef> signature;
 
-  /*
-    MAC(confirmation_key,
-      GroupContext.confirmed_transcript_hash)
-  */
-  MAC confirmation_tag;
-} SlimCommitFramedContentAuthData;
+  select (SlimFramedContent.content_type) {
+    case commit:
+      /*
+        MAC(confirmation_key,
+            GroupContext.confirmed_transcript_hash)
+      */
+      MAC confirmation_tag;
+    case application:
+    case proposal:
+      struct{};
+  };
+} SlimFramedContentAuthData;
 
 struct {
-  ProtocolVersion         version = mls10;
-  WireFormat              wire_format;
-  SlimCommitFramedContent content;
-  select (SlimCommitFramedContentTBS.content.sender.sender_type) {
+  ProtocolVersion    version = mls10;
+  WireFormat         wire_format;
+  SlimFramedContent  content;
+  select (SlimFramedContentTBS.content.sender.sender_type) {
     case member:
     case new_member_commit:
       GroupContext context;
@@ -686,18 +788,18 @@ struct {
     case new_member_proposal:
       struct{};
   };
-} SlimCommitFramedContentTBS;
+} SlimFramedContentTBS;
 
 struct {
-  WireFormat                         wire_format;
-  SlimCommitFramedContent            content;
-  SlimCommitFramedContentAuthData    auth;
-} SlimCommitAuthenticatedContent;
+  WireFormat         wire_format;
+  SlimFramedContent  content;
+  SlimFramedContentAuthData auth;
+} SlimAuthenticatedContent;
 
 struct {
-  SlimCommitFramedContent         content;
-  SlimCommitFramedContentAuthData auth;
-  select (SlimPublicCommitMessage.content.sender.sender_type) {
+  SlimFramedContent         content;
+  SlimFramedContentAuthData auth;
+  select (SlimPublicMessage.content.sender.sender_type) {
     case member:
       MAC membership_tag;
     case external:
@@ -705,14 +807,27 @@ struct {
     case new_member_proposal:
       struct{};
   };
-  optional<SlimUpdatePath> path;
-} SlimPublicCommitMessage;
+  select (SlimPublicMessage.content.content_type) {
+    case commit:
+      optional<SlimUpdatePath> path;
+    case application:
+    case proposal:
+      struct{};
+  };
+} SlimPublicMessage;
 
 struct {
-  SlimCommit                      commit;
-  SlimCommitFramedContentAuthData auth;
-  opaque                          padding[length_of_padding];
-} SlimPrivateCommitMessageContent;
+  select (SlimPrivateMessage.content_type) {
+    case application:
+      opaque application_data<V>;
+    case proposal:
+      SlimProposal proposal;
+    case commit:
+      SlimCommit commit;
+  };
+  SlimFramedContentAuthData auth;
+  opaque                    padding[length_of_padding];
+} SlimPrivateMessageContent;
 
 struct {
   opaque group_id<V>;
@@ -721,62 +836,81 @@ struct {
   opaque authenticated_data<V>;
   opaque encrypted_sender_data<V>;
   opaque ciphertext<V>;
-  optional<SlimUpdatePath> path;
-} SlimPrivateCommitMessage;
+  select (SlimPrivateMessage.content_type) {
+    case commit:
+      optional<SlimUpdatePath> path;
+    case application:
+    case proposal:
+      struct{};
+  };
+} SlimPrivateMessage;
 ~~~
 
-The `content_type` field in SlimCommitFramedContent and
-SlimPrivateCommitMessage MUST be `commit`.
+The optional `signature` field in SlimFramedContentAuthData MUST be
+present whenever `content_type` is `application` or `proposal`. For
+`content_type = commit`, `signature` MUST be absent if and only if the
+single-signature construction of {{single-sig-commits}} applies.
 
-For SlimPrivateCommitMessage, the `ciphertext` field encrypts a
-SlimPrivateCommitMessageContent. The sender data encryption, content encryption,
+When present in a SlimPublicMessage, `signature` MUST use
+`signature_type = signature_ref`. When present in a SlimPrivateMessage,
+`signature` MUST use `signature_type = signature`. This ensures that a
+SlimPrivateMessage framing signature is encrypted as part of
+SlimPrivateMessageContent.
+
+When a framing signature is present, it is computed and verified as in
+{{!RFC9420}}, except that the to-be-signed content is SlimFramedContentTBS and
+the WireFormat is either `mls_slim_public_message` or
+`mls_slim_private_message`.
+
+For SlimPrivateMessage, the `ciphertext` field encrypts a
+SlimPrivateMessageContent. The sender data encryption, content encryption,
 padding, and decryption rules are otherwise the same as for PrivateMessage in
 {{!RFC9420}}.
 
-After decrypting a SlimPrivateCommitMessage, the recipient reconstructs the
-SlimCommitFramedContent from the outer `group_id`, `epoch`, `content_type`, and
-`authenticated_data` fields, the decrypted sender, and the decrypted SlimCommit.
-This reconstructed SlimCommitFramedContent is used for signature verification,
+After decrypting a SlimPrivateMessage, the recipient reconstructs the
+SlimFramedContent from the outer `group_id`, `epoch`, `content_type`, and
+`authenticated_data` fields, the decrypted sender, and the decrypted content.
+The reconstructed SlimFramedContent is used with the decrypted
+SlimFramedContentAuthData for signature verification and, for commits, for
 OuterUpdateHash verification, transcript hash computation, and confirmation tag
 verification.
 
-The optional `signature_ref` field in SlimCommitFramedContentAuthData MUST be
-absent if and only if the single-signature construction of
-{{single-sig-commits}} applies. When present, it references a signature that is
-computed and verified as in {{!RFC9420}}, except that the to-be-signed content
-is SlimCommitFramedContentTBS and the WireFormat is either
-`mls_slim_public_commit` or `mls_slim_private_commit`.
-
-For SlimPublicCommitMessage, the membership tag is computed over the following
+For SlimPublicMessage, the membership tag is computed over the following
 structure:
 
 ~~~
 struct {
-  SlimCommitFramedContentTBS      content_tbs;
-  SlimCommitFramedContentAuthData auth;
-} SlimCommitAuthenticatedContentTBM;
+  SlimFramedContentTBS       content_tbs;
+  SlimFramedContentAuthData  auth;
+} SlimAuthenticatedContentTBM;
 ~~~
 
-For transcript hash computation, the confirmed transcript hash input is:
+For commits, the input to the confirmed transcript hash is:
 
 ~~~
 struct {
-  WireFormat              wire_format;
-  SlimCommitFramedContent content;
-} SlimCommitConfirmedTranscriptHashInput;
+  WireFormat        wire_format;
+  SlimFramedContent content;
+} SlimConfirmedTranscriptHashInput;
 ~~~
 
-The SlimUpdatePath is not part of SlimCommitFramedContent,
-SlimCommitAuthenticatedContentTBM, or SlimCommitConfirmedTranscriptHashInput.
-It is therefore not authenticated by the membership tag, the framing signature,
-or the transcript hash.
+The SlimUpdatePath is not part of SlimFramedContent,
+SlimAuthenticatedContentTBM, or SlimConfirmedTranscriptHashInput. It is
+therefore not authenticated by the membership tag, the framing signature, or
+the transcript hash. In a SlimPrivateMessage carrying a commit, the path is
+carried outside the ciphertext so the DS can reduce it per recipient.
 
-## SlimCommitMessage
+## SlimMessage
 
-SlimCommitMessage is the generic term for the two concrete wire presentations,
-SlimPublicCommitMessage and SlimPrivateCommitMessage. Both presentations are
-used for sender-to-DS transport and for DS-to-recipient delivery; the difference
-between the two is the cardinality of the HPKECiphertextRef vectors in `path`.
+SlimMessage is the generic term for the two concrete wire presentations,
+SlimPublicMessage and SlimPrivateMessage. Both presentations are used for
+sender-to-DS transport and for DS-to-recipient delivery. For commits, the
+difference between the two is the cardinality of the HPKECiphertextRef vectors
+in `path`.
+
+In a SlimMLS group, the {{!RFC9420}} PublicMessage and PrivateMessage wire
+formats MUST NOT be used. A SlimMLS-aware sender MUST emit a SlimPublicMessage
+or SlimPrivateMessage in their place.
 
 ## Single Signature Construction {#single-sig-commits}
 
@@ -818,7 +952,7 @@ struct {
 
 `outer_update_hash` is the hash, under the group's ciphersuite hash function,
 of the TLS-encoded SlimFramedContentTBH. Fields of OuterFramedContent are
-populated from the SlimCommit being framed; the SlimLeafNode is omitted to
+populated from the SlimCommit being framed. The SlimLeafNode is omitted to
 prevent the circular dependency that would arise from including the very
 component being computed.
 
@@ -830,7 +964,7 @@ The OuterUpdateHash authenticates the non-path commit contents that the omitted
 framing signature would otherwise cover. The path's HPKEPublicKeyRefs are
 authenticated separately by parent hash validation. The path's
 HPKECiphertextRefs are not authenticated by the signature and do not contribute
-to the group state; tampering with them can only cause decryption, derived-key,
+to the group state. Tampering with them can only cause decryption, derived-key,
 or confirmation-tag validation to fail.
 
 When the construction applies, the SignaturePublicKeyRef in the SlimLeafNode
@@ -840,15 +974,15 @@ data carries a framing signature, so that the new key is bound by a signature
 under the old one.
 
 A SlimCommit without a SlimLeafNode (e.g., a commit containing only Add or
-Remove proposals) does not use this construction; its authentication data
+Remove proposals) does not use this construction. Its authentication data
 carries a framing signature.
 
-A SlimCommit whose sender type is not `member` does not use this construction;
-its authentication data carries a framing signature.
+A SlimCommit whose sender type is not `member` does not use this construction.
+Its authentication data carries a framing signature.
 
 ## Sender, DS, and Recipient Behavior
 
-A committer constructs a SlimCommitMessage as follows:
+A committer constructs a SlimMessage carrying a SlimCommit as follows:
 
 1. Perform the steps of an {{!RFC9420}} commit, deriving the path's
    HPKEPublicKeys, HPKECiphertexts, parent hashes, and the new epoch's key
@@ -859,17 +993,18 @@ A committer constructs a SlimCommitMessage as follows:
    parent hash MUST authenticate the HPKEPublicKeyRefs in the SlimUpdatePath.
 3. Compute the confirmation tag for the new epoch as in {{!RFC9420}}.
 4. If the single-signature construction applies, include a valid OuterUpdateHash
-   in the SlimLeafNode and leave the optional `signature_ref` field absent.
-   Otherwise, include a SignatureRef to the normal framing signature in the
-   optional `signature_ref` field.
+   in the SlimLeafNode and leave the optional `signature` field absent. If the
+   construction does not apply, include the normal framing signature in
+   SlimFramedContentAuthData, using `signature_type = signature_ref` for
+   SlimPublicMessage and `signature_type = signature` for SlimPrivateMessage.
 5. Build a SlimUpdatePath whose SlimUpdatePathNodes carry the HPKEPublicKeyRefs
-   and HPKECiphertextRefs of the path, and emit a SlimPublicCommitMessage or
-   SlimPrivateCommitMessage, optionally accompanied by a LargeObjectCarrier
-   holding the corresponding HPKEPublicKeys, HPKECiphertexts, and any framing
-   signature.
+   and HPKECiphertextRefs of the path, and emit a SlimPublicMessage or
+   SlimPrivateMessage, optionally accompanied by a LargeObjectCarrier holding
+   the corresponding HPKEPublicKeys, HPKECiphertexts, and any public-message
+   framing signature referenced by the SignatureOrRef.
 
 The DS, knowing the ratchet tree before and after the commit, produces a
-per-recipient SlimCommitMessage by reducing each SlimUpdatePathNode's
+per-recipient SlimMessage by reducing each SlimUpdatePathNode's
 HPKECiphertextRef vector to the subset needed by that recipient. The DS MUST
 retain the HPKEPublicKeyRef in every SlimUpdatePathNode, and MUST retain enough
 HPKECiphertextRefs for the recipient to decrypt one path secret and derive the
@@ -889,15 +1024,20 @@ public keys in the recipient's copath that the recipient cannot derive from its
 retained path secret. In a full tree with no blank nodes, this is one HPKE
 public key for each non-committing recipient.
 
-A recipient processes a SlimCommitMessage by:
+A recipient processes a SlimMessage carrying a SlimCommit by:
 
-1. Resolving the HPKECiphertextRefs and SignatureRefs required for the
-   recipient, and any HPKEPublicKeyRefs that are functionally needed, per
-   {{large-object-retrieval}}.
-2. If SlimCommitFramedContentAuthData contains a `signature_ref`, resolving and
-   verifying the referenced signature per {{!RFC9420}} using
-   SlimCommitFramedContentTBS. Otherwise, verifying the SlimLeafNode signature
-   and OuterUpdateHash per {{single-sig-commits}}.
+1. Resolving the HPKECiphertextRefs required for the recipient and any
+   HPKEPublicKeyRefs that are functionally needed, per
+   {{large-object-retrieval}}. For SlimPublicMessage, this also includes any
+   SignatureRef in the SlimFramedContentAuthData SignatureOrRef. For
+   SlimPrivateMessage, the recipient decrypts SlimPrivateMessageContent and
+   uses the inline SignatureOrRef value when one is present.
+2. If the authentication data contains a framing signature, verifying it per
+   {{!RFC9420}} using SlimFramedContentTBS. If the SignatureOrRef uses
+   `signature_type = signature_ref`, the recipient first resolves the referenced
+   signature. If it uses `signature_type = signature`, the recipient uses the
+   inline signature. If the framing signature is absent, verifying
+   the SlimLeafNode signature and OuterUpdateHash per {{single-sig-commits}}.
 3. Decrypting the resolved HPKECiphertext, deriving the path public keys, and
    verifying that the derived public keys hash to the authenticated
    HPKEPublicKeyRefs.
@@ -908,8 +1048,9 @@ A recipient processes a SlimCommitMessage by:
    fails, the recipient MUST reject the commit.
 
 The input to the confirmed transcript hash is
-SlimCommitConfirmedTranscriptHashInput. The interim transcript hash is computed
-from the confirmed transcript hash and the confirmation tag as in {{!RFC9420}}.
+SlimConfirmedTranscriptHashInput ({{slim-framing}}). The interim transcript
+hash is computed from the confirmed transcript hash and the confirmation tag
+as in {{!RFC9420}}.
 
 DSs that do not maintain the ratchet tree cannot perform the per-recipient
 reduction described above. Strategies for such deployments are out of scope.
@@ -949,56 +1090,45 @@ The DS can similarly deduplicate stored credentials.
 
 ## Delayed Fetching of Large Objects
 
-Clients that have been offline for some time can fetch and process slim messages
+A client that has been offline for some time can fetch and process slim messages
 first. It can wait to fetch large objects that are not relevant for processing
 (such as HPKE public keys) until it has arrived at the current group state. The
 client thus avoids downloading stale, intermediate large objects.
 
 # Wire Formats {#wire-formats}
 
-SlimMLS introduces new WireFormat values only where a recipient cannot know
-from context that SlimMLS framing is in use, or where SlimMLS changes the
-message framing. This applies to SlimKeyPackages, SlimWelcomes, and SlimCommit
-messages.
-
-MLSMessage is correspondingly extended with the following new cases:
+SlimMLS defines new WireFormat values for the SlimMLS variants of each
+{{!RFC9420}} wire format. The MLSMessage struct defined in {{!RFC9420}} is
+correspondingly extended with the following cases:
 
 ~~~
 struct {
   ProtocolVersion version = mls10;
   WireFormat wire_format;
   select (MLSMessage.wire_format) {
-    case mls_public_message:    PublicMessage  public_message;
-    case mls_private_message:   PrivateMessage private_message;
-    case mls_welcome:           Welcome        welcome;
-    case mls_group_info:        GroupInfo      group_info;
-    case mls_key_package:       KeyPackage     key_package;
-    case mls_slim_welcome:      SlimWelcome    slim_welcome;
-    case mls_slim_key_package:  SlimKeyPackage slim_key_package;
-    case mls_slim_public_commit:
-      SlimPublicCommitMessage   slim_public_commit;
-    case mls_slim_private_commit:
-      SlimPrivateCommitMessage  slim_private_commit;
+    case mls_slim_welcome:          SlimWelcome        slim_welcome;
+    case mls_slim_key_package:      SlimKeyPackage     slim_key_package;
+    case mls_slim_group_info:       SlimGroupInfo      slim_group_info;
+    case mls_slim_public_message:   SlimPublicMessage  slim_public_message;
+    case mls_slim_private_message:  SlimPrivateMessage slim_private_message;
   };
 } MLSMessage;
 ~~~
 
-A SlimMLS-aware sender MAY use `mls_slim_key_package` for any SlimKeyPackage
-publication and MUST use `mls_slim_welcome` for any SlimWelcome delivery in
-the context of a group with the `slim_mls` extension. A SlimMLS-aware sender
-MUST use `mls_slim_public_commit` or `mls_slim_private_commit` for any
-SlimCommit delivery in the context of a group with the `slim_mls` extension.
-
-SlimMLS does not define a distinct WireFormat for GroupInfo. A standalone
-GroupInfo in a SlimMLS group uses `mls_group_info` and carries its signature
-inline as in {{!RFC9420}}.
+In a SlimMLS group, the {{!RFC9420}} wire formats `mls_public_message`,
+`mls_private_message`, `mls_welcome`, `mls_group_info`, and `mls_key_package`
+MUST NOT be used. A SlimMLS-aware sender MUST emit the corresponding SlimMLS
+wire format instead: `mls_slim_public_message` or `mls_slim_private_message`
+for member-originated messages, `mls_slim_welcome` for Welcomes,
+`mls_slim_group_info` for standalone GroupInfos, and `mls_slim_key_package`
+for KeyPackages. A recipient MUST reject any RFC 9420 wire format received in
+the context of a group that carries the `slim_mls` extension.
 
 # The slim_mls Extension {#slim-mls-extension}
 
 SlimMLS is signaled by a GroupContext extension named `slim_mls`. Presence
 of this extension in the GroupContext means that all wire formats within the
-group use SlimMLS replacements, subject to the GroupInfo exception in
-{{wire-formats}}.
+group use SlimMLS replacements ({{wire-formats}}).
 
 # The slim_ratchet_tree Extension {#slim-ratchet-tree-extension}
 
@@ -1111,9 +1241,14 @@ relative to the {{!RFC9420}} Welcome:
   chooses which WelcomeGroupInfo a joiner ultimately receives.
 
 In both cases authenticity is unchanged: the joiner MUST verify the
-GroupInfo signature exactly as under {{!RFC9420}}, and a SlimWelcome
-that reaches a recipient with `group_info` still absent MUST be
-rejected ({{welcome-group-info}}).
+SlimGroupInfo signature as under {{!RFC9420}}, and a SlimWelcome that reaches a
+recipient with `group_info` still absent MUST be rejected
+({{welcome-group-info}}).
+
+SlimPrivateMessage and encrypted SlimWelcome GroupInfo signatures are carried
+inside the encrypted plaintext using the SignatureOrRef `signature` variant.
+This prevents a visible LargeObjectCarrier signature from being tested against
+known signature public keys to identify the hidden signer.
 
 # IANA Considerations
 
@@ -1122,14 +1257,16 @@ rejected ({{welcome-group-info}}).
 IANA is requested to add the following entries to the "MLS Extension
 Types" registry defined in {{Section 17.3 of !RFC9420}}:
 
-| Value | Name              | Message(s) | Recommended | Reference |
-|-------|-------------------|------------|-------------|-----------|
-| TBD   | slim_mls          | GC         | Y           | RFC XXXX  |
-| TBD   | slim_ratchet_tree | GI         | Y           | RFC XXXX  |
-| TBD   | slim_external_pub | GI         | Y           | RFC XXXX  |
+| Value  | Name              | Message(s) | Recommended | Reference |
+|--------|-------------------|------------|-------------|-----------|
+| 0x000C | slim_mls          | GC         | Y           | RFC XXXX  |
+| 0x000D | slim_ratchet_tree | GI         | Y           | RFC XXXX  |
+| 0x000E | slim_external_pub | GI         | Y           | RFC XXXX  |
+
+(Values are SlimMLS's suggested allocations. IANA may pick others.)
 
 The "Message(s)" abbreviations are those used in {{Section 17.3 of
-!RFC9420}}; "GC" denotes a GroupContext extension and "GI" denotes a
+!RFC9420}}. "GC" denotes a GroupContext extension and "GI" denotes a
 GroupInfo extension. RFC XXXX is to be replaced with the RFC number
 assigned to this document upon publication.
 
@@ -1138,12 +1275,15 @@ assigned to this document upon publication.
 IANA is requested to add the following entries to the "MLS Wire
 Formats" registry defined in {{Section 17.2 of !RFC9420}}:
 
-| Value | Name                  | Recommended | Reference |
-|-------|-----------------------|-------------|-----------|
-| TBD   | mls_slim_welcome      | Y           | RFC XXXX  |
-| TBD   | mls_slim_key_package  | Y           | RFC XXXX  |
-| TBD   | mls_slim_public_commit | Y          | RFC XXXX  |
-| TBD   | mls_slim_private_commit | Y         | RFC XXXX  |
+| Value  | Name                          | Recommended | Reference |
+|--------|-------------------------------|-------------|-----------|
+| 0x0007 | mls_slim_welcome              | Y           | RFC XXXX  |
+| 0x0008 | mls_slim_key_package          | Y           | RFC XXXX  |
+| 0x0009 | mls_slim_group_info           | Y           | RFC XXXX  |
+| 0x000A | mls_slim_public_message       | Y           | RFC XXXX  |
+| 0x000B | mls_slim_private_message      | Y           | RFC XXXX  |
+
+(Values are SlimMLS's suggested allocations. IANA may pick others.)
 
 
 --- back
