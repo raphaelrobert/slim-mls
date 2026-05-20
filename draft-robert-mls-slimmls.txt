@@ -124,12 +124,13 @@ Table of Contents
 
    SlimMLS reduces this overhead by applying a single uniform technique:
    wherever a large object appears inside a structure, it is replaced by
-   a hash reference to that object.  Recipients retrieve the actual
-   objects out-of-band as needed.  Because the binding to signed and
-   transcript-hashed structures is preserved by the hash, an untrusted
-   Delivery Service (DS) can selectively fan out large objects to the
-   clients that need them, omit objects a client already has, or rewrite
-   the retrieval channel without compromising authenticity.  In turn,
+   a hash reference to that object, except for the GroupInfo signatures
+   described in Section 5.  Recipients retrieve the actual objects out-
+   of-band as needed.  Because the binding to signed and transcript-
+   hashed structures is preserved by the hash, an untrusted Delivery
+   Service (DS) can selectively fan out large objects to the clients
+   that need them, omit objects a client already has, or rewrite the
+   retrieval channel without compromising authenticity.  In turn,
    clients can selectively fetch objects that they are missing.
 
    This pattern is analogous to the RefHash-based references already
@@ -157,7 +158,8 @@ Table of Contents
 
    *  Every place where [RFC9420] embeds an HPKEPublicKey,
       SignaturePublicKey, Credential, HPKECiphertext, or signature is
-      replaced with a hash reference of the corresponding type.
+      replaced with a hash reference of the corresponding type, except
+      that GroupInfo signatures remain inline as in [RFC9420].
 
    *  The referenced large objects are retrieved per Section 6 if and
       when necessary.
@@ -304,17 +306,9 @@ Table of Contents
 
    References to large objects in SlimMLS structures, in their
    associated companion structures (e.g., SlimUpdatePath, Section 9),
-   and in SlimGroupInfo extensions defined by this document MUST be
-   resolved to the corresponding large objects when necessary for MLS
-   operations or validation checks.
-
-   For example, a client joining an MLS group via a Welcome will need to
-   resolve the signature referenced in the SlimGroupInfo for
-   verification, along with the signatures, SignaturePublicKeys and
-   Credentials in all leaf nodes, but it doesn't need to resolve all
-   HPKEPublicKeys in the ratchet tree to join the group.  When the
-   client decides to update its leaf, it must resolve the HPKEPublicKeys
-   necessary to encrypt the commit's PathSecrets, but no others.
+   and in GroupInfo extensions defined by this document MUST be resolved
+   to the corresponding large objects when necessary for MLS operations
+   or validation checks.
 
    SlimMLS defines three retrieval channels:
 
@@ -688,13 +682,11 @@ Table of Contents
 
 9.  SlimCommit
 
-   SlimCommit applies the split-delivery goal of
-   [I-D.mularczyk-mls-splitcommit] to SlimMLS Commits: the DS can
+   SlimCommit enables split delivery for SlimMLS Commits.  The DS can
    deliver to each recipient only the HPKECiphertextRefs and
-   HPKECiphertexts intended for that recipient.  It also applies the
-   approach by [I-D.kohbrok-mls-fewer-signatures] to save one signature
-   in case commits contain a path, but do not rotate the sender's
-   signature key.
+   HPKECiphertexts intended for that recipient.  It also saves one
+   signature when a commit contains a path but does not rotate the
+   sender's signature key.
 
    A SlimMLS-aware sender MUST use a SlimCommit in place of an MLS
    Commit in a group with the slim_mls extension.
@@ -709,9 +701,9 @@ Table of Contents
    A SlimCommit carries the normal [RFC9420] confirmation tag.  When the
    single-signature construction of Section 9.4 applies, the
    authentication data contains the confirmation tag but omits the
-   signature reference field, as in [I-D.kohbrok-mls-fewer-signatures].
-   Otherwise, the authentication data contains both the confirmation tag
-   and a reference to the framing signature.
+   signature reference field.  Otherwise, the authentication data
+   contains both the confirmation tag and a reference to the framing
+   signature.
 
    struct {
      ProposalOrRef          proposals<V>;
@@ -896,8 +888,7 @@ Table of Contents
 9.4.  Single Signature Construction
 
    When a SlimCommit is sent by a member, contains a SlimLeafNode, and
-   the sender's signature key is unchanged, the construction of
-   [I-D.kohbrok-mls-fewer-signatures] applies: the framing signature is
+   the sender's signature key is unchanged, the framing signature is
    omitted, and authenticity is provided by the SlimLeafNode's own
    signature in combination with an OuterUpdateHash component placed in
    the SlimLeafNode's app_data_dictionary extension.  The confirmation
@@ -1044,7 +1035,7 @@ Table of Contents
 
    DSs that do not maintain the ratchet tree cannot perform the per-
    recipient reduction described above.  Strategies for such deployments
-   are out of scope, as in [I-D.mularczyk-mls-splitcommit].
+   are out of scope.
 
 10.  Optimizing Payload Sizes
 
@@ -1313,20 +1304,6 @@ Table of Contents
               July 2023, <https://www.rfc-editor.org/rfc/rfc9420>.
 
 17.2.  Informative References
-
-   [I-D.kohbrok-mls-fewer-signatures]
-              Robert, R. and K. Kohbrok, "Fewer signatures in MLS", Work
-              in Progress, Internet-Draft, draft-kohbrok-mls-fewer-
-              signatures-00, 2 March 2026,
-              <https://datatracker.ietf.org/doc/html/draft-kohbrok-mls-
-              fewer-signatures-00>.
-
-   [I-D.mularczyk-mls-splitcommit]
-              Joël and M. Mularczyk, "MLS Split Commits", Work in
-              Progress, Internet-Draft, draft-mularczyk-mls-splitcommit-
-              00, 21 October 2024,
-              <https://datatracker.ietf.org/doc/html/draft-mularczyk-
-              mls-splitcommit-00>.
 
    [SAIK]     Alwen, J., Hartmann, D., Kiltz, E., and M. Mularczyk,
               "Server-Aided Continuous Group Key Agreement", ACM

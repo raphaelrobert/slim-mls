@@ -1318,7 +1318,8 @@ Welcomes, and Commits. The blow-up is felt both on the wire and in client
 storage.<a href="#section-1-1" class="pilcrow">¶</a></p>
 <p id="section-1-2">SlimMLS reduces this overhead by applying a single uniform technique: wherever a
 large object appears inside a structure, it is replaced by a hash reference to
-that object. Recipients retrieve the actual objects out-of-band as needed.
+that object, except for the GroupInfo signatures described in
+<a href="#slim-structs" class="auto internal xref">Section 5</a>. Recipients retrieve the actual objects out-of-band as needed.
 Because the binding to signed and transcript-hashed structures is preserved by
 the hash, an untrusted Delivery Service (DS) can selectively fan out large
 objects to the clients that need them, omit objects a client already has, or
@@ -1355,7 +1356,8 @@ extension (<a href="#slim-mls-extension" class="auto internal xref">Section 12</
 <li class="normal" id="section-3-2.1">
           <p id="section-3-2.1.1">Every place where <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> embeds an HPKEPublicKey, SignaturePublicKey,
 Credential, HPKECiphertext, or signature is replaced with a hash reference of
-the corresponding type.<a href="#section-3-2.1.1" class="pilcrow">¶</a></p>
+the corresponding type, except that GroupInfo signatures remain inline as in
+<span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-3-2.1.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-3-2.2">
           <p id="section-3-2.2.1">The referenced large objects are retrieved per <a href="#large-object-retrieval" class="auto internal xref">Section 6</a> if
@@ -1541,46 +1543,40 @@ later revision.]]<a href="#section-5-11" class="pilcrow">¶</a></p>
 <a href="#section-6" class="section-number selfRef">6. </a><a href="#name-large-object-retrieval" class="section-name selfRef">Large Object Retrieval</a>
       </h2>
 <p id="section-6-1">References to large objects in SlimMLS structures, in their associated companion
-structures (e.g., SlimUpdatePath, <a href="#slim-commit" class="auto internal xref">Section 9</a>), and in SlimGroupInfo
-extensions defined by this document <span class="bcp14">MUST</span> be resolved to the corresponding large
-objects when necessary for MLS operations or validation checks.<a href="#section-6-1" class="pilcrow">¶</a></p>
-<p id="section-6-2">For example, a client joining an MLS group via a Welcome will need to resolve
-the signature referenced in the SlimGroupInfo for verification, along with the
-signatures, SignaturePublicKeys and Credentials in all leaf nodes, but it
-doesn't need to resolve all HPKEPublicKeys in the ratchet tree to join the
-group. When the client decides to update its leaf, it must resolve the
-HPKEPublicKeys necessary to encrypt the commit's PathSecrets, but no others.<a href="#section-6-2" class="pilcrow">¶</a></p>
-<p id="section-6-3">SlimMLS defines three retrieval channels:<a href="#section-6-3" class="pilcrow">¶</a></p>
+structures (e.g., SlimUpdatePath, <a href="#slim-commit" class="auto internal xref">Section 9</a>), and in GroupInfo extensions
+defined by this document <span class="bcp14">MUST</span> be resolved to the corresponding large objects
+when necessary for MLS operations or validation checks.<a href="#section-6-1" class="pilcrow">¶</a></p>
+<p id="section-6-2">SlimMLS defines three retrieval channels:<a href="#section-6-2" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-6-4.1">
-          <p id="section-6-4.1.1">The LargeObjectCarrier (<a href="#large-object-carrier" class="auto internal xref">Section 6.1</a>), specified in this
-document.<a href="#section-6-4.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="section-6-3.1">
+          <p id="section-6-3.1.1">The LargeObjectCarrier (<a href="#large-object-carrier" class="auto internal xref">Section 6.1</a>), specified in this
+document.<a href="#section-6-3.1.1" class="pilcrow">¶</a></p>
 </li>
-        <li class="normal" id="section-6-4.2">
-          <p id="section-6-4.2.1">A client-local cache of previously resolved objects.<a href="#section-6-4.2.1" class="pilcrow">¶</a></p>
+        <li class="normal" id="section-6-3.2">
+          <p id="section-6-3.2.1">A client-local cache of previously resolved objects.<a href="#section-6-3.2.1" class="pilcrow">¶</a></p>
 </li>
-        <li class="normal" id="section-6-4.3">
-          <p id="section-6-4.3.1">An application-specific fetch mechanism.<a href="#section-6-4.3.1" class="pilcrow">¶</a></p>
+        <li class="normal" id="section-6-3.3">
+          <p id="section-6-3.3.1">An application-specific fetch mechanism.<a href="#section-6-3.3.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
-<p id="section-6-5">Applications can decide how or if they use one or more retrieval channels.<a href="#section-6-5" class="pilcrow">¶</a></p>
-<p id="section-6-6">On receipt of a SlimMLS structure, a client:<a href="#section-6-6" class="pilcrow">¶</a></p>
-<ol start="1" type="1" class="normal type-1" id="section-6-7">
-<li id="section-6-7.1">
-          <p id="section-6-7.1.1">For every large-object <code>*Ref</code> it needs to process the structure or any
+<p id="section-6-4">Applications can decide how or if they use one or more retrieval channels.<a href="#section-6-4" class="pilcrow">¶</a></p>
+<p id="section-6-5">On receipt of a SlimMLS structure, a client:<a href="#section-6-5" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-6-6">
+<li id="section-6-6.1">
+          <p id="section-6-6.1.1">For every large-object <code>*Ref</code> it needs to process the structure or any
 associated companion structure, locates a candidate object through any of the
-three channels above.<a href="#section-6-7.1.1" class="pilcrow">¶</a></p>
+three channels above.<a href="#section-6-6.1.1" class="pilcrow">¶</a></p>
 </li>
-        <li id="section-6-7.2">
-          <p id="section-6-7.2.1">Computes the reference of each candidate object under the appropriate
+        <li id="section-6-6.2">
+          <p id="section-6-6.2.1">Computes the reference of each candidate object under the appropriate
 label (<a href="#ref-types" class="auto internal xref">Section 4</a>) and verifies that it equals the <code>*Ref</code> being
 resolved. A candidate object whose reference does not match <span class="bcp14">MUST NOT</span> be
-used for any cryptographic operation.<a href="#section-6-7.2.1" class="pilcrow">¶</a></p>
+used for any cryptographic operation.<a href="#section-6-6.2.1" class="pilcrow">¶</a></p>
 </li>
-        <li id="section-6-7.3">
-          <p id="section-6-7.3.1">If a required <code>*Ref</code> cannot be resolved through any channel, the client <span class="bcp14">MUST</span>
+        <li id="section-6-6.3">
+          <p id="section-6-6.3.1">If a required <code>*Ref</code> cannot be resolved through any channel, the client <span class="bcp14">MUST</span>
 either request the missing object through an application-specific mechanism,
-for example from the DS, or drop the message.<a href="#section-6-7.3.1" class="pilcrow">¶</a></p>
+for example from the DS, or drop the message.<a href="#section-6-6.3.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
 <div id="large-object-carrier">
@@ -1974,12 +1970,10 @@ absent <span class="bcp14">MUST</span> consider the SlimWelcome invalid.<a href=
       <h2 id="name-slimcommit">
 <a href="#section-9" class="section-number selfRef">9. </a><a href="#name-slimcommit" class="section-name selfRef">SlimCommit</a>
       </h2>
-<p id="section-9-1">SlimCommit applies the split-delivery goal of
-<span>[<a href="#I-D.mularczyk-mls-splitcommit" class="cite xref">I-D.mularczyk-mls-splitcommit</a>]</span> to SlimMLS Commits: the DS can deliver to
-each recipient only the HPKECiphertextRefs and HPKECiphertexts intended for that
-recipient. It also applies the approach by
-<span>[<a href="#I-D.kohbrok-mls-fewer-signatures" class="cite xref">I-D.kohbrok-mls-fewer-signatures</a>]</span> to save one signature in case commits
-contain a path, but do not rotate the sender's signature key.<a href="#section-9-1" class="pilcrow">¶</a></p>
+<p id="section-9-1">SlimCommit enables split delivery for SlimMLS Commits. The DS can deliver to
+each recipient only the HPKECiphertextRefs and HPKECiphertexts intended for
+that recipient. It also saves one signature when a commit contains a path but
+does not rotate the sender's signature key.<a href="#section-9-1" class="pilcrow">¶</a></p>
 <p id="section-9-2">A SlimMLS-aware sender <span class="bcp14">MUST</span> use a SlimCommit in place of an MLS Commit in a
 group with the <code>slim_mls</code> extension.<a href="#section-9-2" class="pilcrow">¶</a></p>
 <p id="section-9-3">A SlimCommit uses the <code>commit</code> ContentType, but is carried in the dedicated
@@ -1990,9 +1984,8 @@ hash, the membership tag, or the framing signature.<a href="#section-9-3" class=
 <p id="section-9-4">A SlimCommit carries the normal <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> confirmation tag. When the
 single-signature construction of <a href="#single-sig-commits" class="auto internal xref">Section 9.4</a> applies, the
 authentication data contains the confirmation tag but omits the signature
-reference field, as in <span>[<a href="#I-D.kohbrok-mls-fewer-signatures" class="cite xref">I-D.kohbrok-mls-fewer-signatures</a>]</span>. Otherwise, the
-authentication data contains both the confirmation tag and a reference to the
-framing signature.<a href="#section-9-4" class="pilcrow">¶</a></p>
+reference field. Otherwise, the authentication data contains both the
+confirmation tag and a reference to the framing signature.<a href="#section-9-4" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-9-5">
 <pre>
 struct {
@@ -2187,10 +2180,9 @@ between the two is the cardinality of the HPKECiphertextRef vectors in <code>pat
         <h3 id="name-single-signature-constructi">
 <a href="#section-9.4" class="section-number selfRef">9.4. </a><a href="#name-single-signature-constructi" class="section-name selfRef">Single Signature Construction</a>
         </h3>
-<p id="section-9.4-1">When a SlimCommit is sent by a member, contains a SlimLeafNode, and the sender's
-signature key is unchanged, the construction of
-<span>[<a href="#I-D.kohbrok-mls-fewer-signatures" class="cite xref">I-D.kohbrok-mls-fewer-signatures</a>]</span> applies: the framing signature is omitted,
-and authenticity is provided by the SlimLeafNode's own signature in combination
+<p id="section-9.4-1">When a SlimCommit is sent by a member, contains a SlimLeafNode, and the
+sender's signature key is unchanged, the framing signature is omitted, and
+authenticity is provided by the SlimLeafNode's own signature in combination
 with an OuterUpdateHash component placed in the SlimLeafNode's
 <code>app_data_dictionary</code> extension. The confirmation tag is still present and
 processed as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-9.4-1" class="pilcrow">¶</a></p>
@@ -2335,8 +2327,7 @@ fails, the recipient <span class="bcp14">MUST</span> reject the commit.<a href="
 SlimCommitConfirmedTranscriptHashInput. The interim transcript hash is computed
 from the confirmed transcript hash and the confirmation tag as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-9.5-7" class="pilcrow">¶</a></p>
 <p id="section-9.5-8">DSs that do not maintain the ratchet tree cannot perform the per-recipient
-reduction described above. Strategies for such deployments are out of scope, as
-in <span>[<a href="#I-D.mularczyk-mls-splitcommit" class="cite xref">I-D.mularczyk-mls-splitcommit</a>]</span>.<a href="#section-9.5-8" class="pilcrow">¶</a></p>
+reduction described above. Strategies for such deployments are out of scope.<a href="#section-9.5-8" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2712,14 +2703,6 @@ Formats" registry defined in <span><a href="https://rfc-editor.org/rfc/rfc9420#s
 <a href="#section-17.2" class="section-number selfRef">17.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
         </h3>
 <dl class="references">
-<dt id="I-D.kohbrok-mls-fewer-signatures">[I-D.kohbrok-mls-fewer-signatures]</dt>
-        <dd>
-<span class="refAuthor">Robert, R.</span> and <span class="refAuthor">K. Kohbrok</span>, <span class="refTitle">"Fewer signatures in MLS"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-kohbrok-mls-fewer-signatures-00</span>, <time datetime="2026-03-02" class="refDate">2 March 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-kohbrok-mls-fewer-signatures-00">https://datatracker.ietf.org/doc/html/draft-kohbrok-mls-fewer-signatures-00</a>&gt;</span>. </dd>
-<dd class="break"></dd>
-<dt id="I-D.mularczyk-mls-splitcommit">[I-D.mularczyk-mls-splitcommit]</dt>
-        <dd>
-<span class="refAuthor">Joël</span> and <span class="refAuthor">M. Mularczyk</span>, <span class="refTitle">"MLS Split Commits"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-mularczyk-mls-splitcommit-00</span>, <time datetime="2024-10-21" class="refDate">21 October 2024</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-mularczyk-mls-splitcommit-00">https://datatracker.ietf.org/doc/html/draft-mularczyk-mls-splitcommit-00</a>&gt;</span>. </dd>
-<dd class="break"></dd>
 <dt id="SAIK">[SAIK]</dt>
       <dd>
 <span class="refAuthor">Alwen, J.</span>, <span class="refAuthor">Hartmann, D.</span>, <span class="refAuthor">Kiltz, E.</span>, and <span class="refAuthor">M. Mularczyk</span>, <span class="refTitle">"Server-Aided Continuous Group Key Agreement"</span>, <span class="seriesInfo">ACM CCS 2022, pp. 69-82</span>, <time datetime="2022" class="refDate">2022</time>, <span>&lt;<a href="https://eprint.iacr.org/2021/1456">https://eprint.iacr.org/2021/1456</a>&gt;</span>. </dd>
