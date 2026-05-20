@@ -79,7 +79,8 @@ that object, except for the GroupInfo signatures described in
 Because the binding to signed and transcript-hashed structures is preserved by
 the hash, an untrusted Delivery Service (DS) can selectively fan out large
 objects to the clients that need them, omit objects a client already has, or
-rewrite the retrieval channel without compromising authenticity. In turn,
+use different retrieval mechanisms per recipient without compromising
+authenticity. In turn,
 clients can selectively fetch objects that they are missing.
 
 This pattern is not new in MLS: {{!RFC9420}} already uses RefHash-based
@@ -218,27 +219,30 @@ structures (e.g., SlimUpdatePath, {{slim-commit}}), and in GroupInfo extensions
 defined by this document MUST be resolved to the corresponding large objects
 when necessary for MLS operations or validation checks.
 
-SlimMLS defines three retrieval channels:
+SlimMLS does not mandate a specific retrieval mechanism. Implementations might
+obtain large objects through mechanisms such as:
 
 - The LargeObjectCarrier ({{large-object-carrier}}), specified in this
   document.
 - A client-local cache of previously resolved objects.
 - An application-specific fetch mechanism.
 
-Applications can decide how or if they use one or more retrieval channels.
+Applications can use any combination of these examples, or other mechanisms
+that fit their deployment.
 
 On receipt of a SlimMLS structure, a client:
 
 1. For every large-object `*Ref` it needs to process the structure or any
-   associated companion structure, locates a candidate object through any of the
-   three channels above.
+   associated companion structure, locates a candidate object through an
+   available retrieval mechanism, such as one of the examples above.
 2. Computes the reference of each candidate object under the appropriate
    label ({{ref-types}}) and verifies that it equals the `*Ref` being
    resolved. A candidate object whose reference does not match MUST NOT be
    used for any cryptographic operation.
-3. If a required `*Ref` cannot be resolved through any channel, the client MUST
-   either request the missing object through an application-specific mechanism,
-   for example from the DS, or drop the message.
+3. If a required `*Ref` cannot be resolved through any available retrieval
+   mechanism, the client MUST either request the missing object through an
+   application-specific mechanism, for example from the DS, or drop the
+   message.
 
 ## Large Object Carrier {#large-object-carrier}
 
@@ -568,7 +572,7 @@ TLS-encoded GroupInfo.
 The outer `optional<WelcomeGroupInfo>` in the SlimWelcome additionally allows
 the sender to omit the GroupInfo. This mode is intended for server-assisted
 deployments where the sender and recipient can obtain the exact GroupInfo by
-some channel other than the SlimWelcome.
+some mechanism outside the SlimWelcome.
 
 A recipient that receives a SlimWelcome whose `group_info` field is
 absent MUST consider the SlimWelcome invalid.
@@ -1072,17 +1076,17 @@ with an HPKECiphertextRef or the referenced HPKECiphertext can only cause the
 recipient to fail reference resolution, decryption, derived-public-key matching,
 parent-hash validation, or confirmation-tag validation.
 
-Large-object retrieval channels ({{large-object-retrieval}}) may be
+Large-object retrieval mechanisms ({{large-object-retrieval}}) may be
 unauthenticated. The hash-reference verification in step 2 of that section is
 what provides authentication of the resolved objects, and is what binds them to
 the signed and transcript-hashed slim structures. A Delivery Service or network
-attacker that withholds, modifies, or substitutes entries in any channel can
-only cause a recipient to fail to resolve a reference, which is functionally
-equivalent to dropping the message, which the DS can already do under
-{{!RFC9420}}. An attacker may also surface unsolicited or malformed objects
-through any channel. Recipients MUST NOT treat the contents of any retrieval
-channel as authoritative metadata and MUST ignore objects whose hash does not
-match any reference the recipient needs to resolve.
+attacker that withholds, modifies, or substitutes objects in any such mechanism
+can only cause a recipient to fail to resolve a reference, which is
+functionally equivalent to dropping the message, which the DS can already do
+under {{!RFC9420}}. An attacker may also surface unsolicited or malformed
+objects through any retrieval mechanism. Recipients MUST NOT treat the contents
+of any retrieval mechanism as authoritative metadata and MUST ignore objects
+whose hash does not match any reference the recipient needs to resolve.
 
 A client that caches resolved large objects across groups MUST index its
 cache by the tuple (reference type, ciphersuite hash function, reference value).
