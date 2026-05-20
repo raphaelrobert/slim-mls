@@ -77,7 +77,7 @@ or an application-specific retrieval channel. Recipients verify each object by
 recomputing the reference before using it.
 
 The largest benefits come from deployments where the DS is an independent
-server that can assist clients. In such deployments, the DS can omit objects a
+service that can assist clients. In such deployments, the DS can omit objects a
 recipient already has, reduce update path ciphertexts to the subset each
 recipient needs, and supply GroupInfo separately from a SlimWelcome. Deployments
 without an assisting DS still benefit from smaller authenticated state, local
