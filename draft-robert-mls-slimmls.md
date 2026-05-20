@@ -44,9 +44,12 @@ credentials. SlimMLS replaces many large objects that appear in MLS
 authenticated or transcript-hashed structures with typed hash references.
 Clients resolve the referenced objects only when needed, using a per-message
 carrier, a local cache, or an application-specific retrieval channel. The
-extension defines slim variants of KeyPackage, Commit, Welcome, GroupInfo, and
-message framing. When placing a signature outside an encrypted envelope would
-reveal the signer, SlimMLS keeps the signature inside the ciphertext.
+extension is most useful when an independent Delivery Service can assist with
+retrieval and per-recipient delivery, although local caching and delayed
+fetching also help without such assistance. SlimMLS defines slim variants of
+KeyPackage, Commit, Welcome, GroupInfo, and message framing. When placing a
+signature outside an encrypted envelope would reveal the signer, SlimMLS keeps
+the signature inside the ciphertext.
 
 --- middle
 
@@ -72,6 +75,14 @@ authenticated or transcript-hashed structure carries a typed hash reference, and
 the referenced object is delivered through a per-message carrier, a local cache,
 or an application-specific retrieval channel. Recipients verify each object by
 recomputing the reference before using it.
+
+The largest benefits come from deployments where the DS is an independent
+server that can assist clients. In such deployments, the DS can omit objects a
+recipient already has, reduce update path ciphertexts to the subset each
+recipient needs, and supply GroupInfo separately from a SlimWelcome. Deployments
+without an assisting DS still benefit from smaller authenticated state, local
+caches of credentials and keys, and the ability to defer fetching large objects
+until they are needed.
 
 The main protocol changes are:
 
