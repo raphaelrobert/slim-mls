@@ -73,7 +73,8 @@ storage.
 
 SlimMLS reduces this overhead by applying a single uniform technique: wherever a
 large object appears inside a structure, it is replaced by a hash reference to
-that object. Recipients retrieve the actual objects out-of-band as needed.
+that object, except for the GroupInfo signatures described in
+{{slim-structs}}. Recipients retrieve the actual objects out-of-band as needed.
 Because the binding to signed and transcript-hashed structures is preserved by
 the hash, an untrusted Delivery Service (DS) can selectively fan out large
 objects to the clients that need them, omit objects a client already has, or
@@ -101,7 +102,8 @@ extension ({{slim-mls-extension}}). In such a group:
 
 - Every place where {{!RFC9420}} embeds an HPKEPublicKey, SignaturePublicKey,
   Credential, HPKECiphertext, or signature is replaced with a hash reference of
-  the corresponding type.
+  the corresponding type, except that GroupInfo signatures remain inline as in
+  {{!RFC9420}}.
 - The referenced large objects are retrieved per {{large-object-retrieval}} if
   and when necessary.
 
@@ -209,16 +211,9 @@ later revision.\]\]
 # Large Object Retrieval {#large-object-retrieval}
 
 References to large objects in SlimMLS structures, in their associated companion
-structures (e.g., SlimUpdatePath, {{slim-commit}}), and in SlimGroupInfo
-extensions defined by this document MUST be resolved to the corresponding large
-objects when necessary for MLS operations or validation checks.
-
-For example, a client joining an MLS group via a Welcome will need to resolve
-the signature referenced in the SlimGroupInfo for verification, along with the
-signatures, SignaturePublicKeys and Credentials in all leaf nodes, but it
-doesn't need to resolve all HPKEPublicKeys in the ratchet tree to join the
-group. When the client decides to update its leaf, it must resolve the
-HPKEPublicKeys necessary to encrypt the commit's PathSecrets, but no others.
+structures (e.g., SlimUpdatePath, {{slim-commit}}), and in GroupInfo extensions
+defined by this document MUST be resolved to the corresponding large objects
+when necessary for MLS operations or validation checks.
 
 SlimMLS defines three retrieval channels:
 
@@ -578,12 +573,10 @@ absent MUST consider the SlimWelcome invalid.
 
 # SlimCommit {#slim-commit}
 
-SlimCommit applies the split-delivery goal of
-{{?I-D.mularczyk-mls-splitcommit}} to SlimMLS Commits: the DS can deliver to
-each recipient only the HPKECiphertextRefs and HPKECiphertexts intended for that
-recipient. It also applies the approach by
-{{?I-D.kohbrok-mls-fewer-signatures}} to save one signature in case commits
-contain a path, but do not rotate the sender's signature key.
+SlimCommit enables split delivery for SlimMLS Commits. The DS can deliver to
+each recipient only the HPKECiphertextRefs and HPKECiphertexts intended for
+that recipient. It also saves one signature when a commit contains a path but
+does not rotate the sender's signature key.
 
 A SlimMLS-aware sender MUST use a SlimCommit in place of an MLS Commit in a
 group with the `slim_mls` extension.
@@ -597,9 +590,8 @@ hash, the membership tag, or the framing signature.
 A SlimCommit carries the normal {{!RFC9420}} confirmation tag. When the
 single-signature construction of {{single-sig-commits}} applies, the
 authentication data contains the confirmation tag but omits the signature
-reference field, as in {{?I-D.kohbrok-mls-fewer-signatures}}. Otherwise, the
-authentication data contains both the confirmation tag and a reference to the
-framing signature.
+reference field. Otherwise, the authentication data contains both the
+confirmation tag and a reference to the framing signature.
 
 ~~~
 struct {
@@ -786,10 +778,9 @@ between the two is the cardinality of the HPKECiphertextRef vectors in `path`.
 
 ## Single Signature Construction {#single-sig-commits}
 
-When a SlimCommit is sent by a member, contains a SlimLeafNode, and the sender's
-signature key is unchanged, the construction of
-{{?I-D.kohbrok-mls-fewer-signatures}} applies: the framing signature is omitted,
-and authenticity is provided by the SlimLeafNode's own signature in combination
+When a SlimCommit is sent by a member, contains a SlimLeafNode, and the
+sender's signature key is unchanged, the framing signature is omitted, and
+authenticity is provided by the SlimLeafNode's own signature in combination
 with an OuterUpdateHash component placed in the SlimLeafNode's
 `app_data_dictionary` extension. The confirmation tag is still present and
 processed as in {{!RFC9420}}.
@@ -919,8 +910,7 @@ SlimCommitConfirmedTranscriptHashInput. The interim transcript hash is computed
 from the confirmed transcript hash and the confirmation tag as in {{!RFC9420}}.
 
 DSs that do not maintain the ratchet tree cannot perform the per-recipient
-reduction described above. Strategies for such deployments are out of scope, as
-in {{?I-D.mularczyk-mls-splitcommit}}.
+reduction described above. Strategies for such deployments are out of scope.
 
 # Optimizing Payload Sizes
 
