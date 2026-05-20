@@ -75,13 +75,13 @@ storage.
 SlimMLS reduces this overhead by applying a single uniform technique: wherever a
 large object appears inside a structure, it is replaced by a hash reference to
 that object, except for the GroupInfo signatures described in
-{{slim-structs}}. The object itself can be transported alongside the signed
-structure, retrieved from a cache, or fetched separately. Because the binding to
-signed and transcript-hashed structures is preserved by the hash, an untrusted
-Delivery Service (DS) can selectively fan out large objects to the clients that
-need them, omit objects a client already has, or rewrite a carrier without
-compromising authenticity. In turn, clients can selectively fetch objects that
-they are missing.
+{{slim-structs}}. Recipients retrieve the actual objects out-of-band as needed.
+Because the binding to signed and transcript-hashed structures is preserved by
+the hash, an untrusted Delivery Service (DS) can selectively fan out large
+objects to the clients that need them, omit objects a client already has, or
+use different retrieval mechanisms per recipient without compromising
+authenticity. In turn,
+clients can selectively fetch objects that they are missing.
 
 This pattern is not new in MLS: {{!RFC9420}} already uses RefHash-based
 references such as KeyPackageRef and ProposalRef. SlimMLS generalizes
@@ -106,10 +106,8 @@ extension ({{slim-mls-extension}}). In such a group:
   Credential, HPKECiphertext, or signature is replaced with a hash reference of
   the corresponding type, except that GroupInfo signatures remain inline as in
   {{!RFC9420}}.
-- A slim message MAY be accompanied by an unauthenticated carrier
-  ({{large-object-carrier}}) holding a subset of the large objects the recipient
-  needs. Recipients can also resolve references from a local cache or through an
-  application-specific fetch mechanism.
+- The referenced large objects are retrieved per {{large-object-retrieval}} if
+  and when necessary.
 
 # Reference Computation {#ref-types}
 
@@ -214,17 +212,44 @@ substitution against {{!RFC9420}} and is not repeated here.
 \[\[TODO: provide explicit TLS presentations for each slim variant in a
 later revision.\]\]
 
-# Large Object Carrier {#large-object-carrier}
+# Large Object Retrieval {#large-object-retrieval}
+
+References to large objects in SlimMLS structures, in their associated companion
+structures (e.g., SlimUpdatePath, {{slim-commit}}), and in GroupInfo extensions
+defined by this document MUST be resolved to the corresponding large objects
+when necessary for MLS operations or validation checks.
+
+SlimMLS does not mandate a specific retrieval mechanism. Implementations might
+obtain large objects through mechanisms such as:
+
+- The LargeObjectCarrier ({{large-object-carrier}}), specified in this
+  document.
+- A client-local cache of previously resolved objects.
+- An application-specific fetch mechanism.
+
+Applications can use any combination of these examples, or other mechanisms
+that fit their deployment.
+
+On receipt of a SlimMLS structure, a client:
+
+1. For every large-object `*Ref` it needs to process the structure or any
+   associated companion structure, locates a candidate object through an
+   available retrieval mechanism, such as one of the examples above.
+2. Computes the reference of each candidate object under the appropriate
+   label ({{ref-types}}) and verifies that it equals the `*Ref` being
+   resolved. A candidate object whose reference does not match MUST NOT be
+   used for any cryptographic operation.
+3. If a required `*Ref` cannot be resolved through any available retrieval
+   mechanism, the client MUST either request the missing object through an
+   application-specific mechanism, for example from the DS, or drop the
+   message.
+
+## Large Object Carrier {#large-object-carrier}
 
 A client sending a SlimMLS struct over the wire MAY also send a
-LargeObjectCarrier struct that contains a subset of the large structs referenced
-by the SlimMLS struct or by an associated unauthenticated structure such as
-SlimUpdatePath ({{slim-commit}}). When a GroupInfo in a SlimMLS group contains
-extensions with `*Ref` values, such as `slim_ratchet_tree`
-({{slim-ratchet-tree-extension}}) or `slim_external_pub`
-({{slim-external-pub-extension}}), the corresponding large objects can be
-provided in a LargeObjectCarrier, from a local cache, or by an
-application-specific fetch mechanism.
+LargeObjectCarrier struct that contains a subset of the large objects referenced
+by the SlimMLS struct or by an associated structure such as SlimUpdatePath
+({{slim-commit}}).
 
 This document does not define a single MLSMessage wrapper for
 LargeObjectCarrier. When a carrier is sent on the wire, its encoding,
@@ -232,8 +257,8 @@ multiplexing, and association with the SlimMLS message are provided by the
 application or DS protocol using SlimMLS.
 
 For each large-object reference type that appears in a slim structure or an
-associated unauthenticated structure, the LargeObjectCarrier contains a vector
-of the corresponding large objects:
+associated structure, the LargeObjectCarrier contains a vector of the
+corresponding large objects:
 
 ~~~
 struct {
@@ -247,23 +272,12 @@ struct {
 
 The carrier is NOT part of the signed structure. The DS MAY add, remove,
 reorder, or substitute entries on a per-recipient basis, e.g., to omit objects
-the recipient already has cached, or to distribute partial-commit ciphertexts.
-The LargeObjectCarrier is optional in the SlimMLS wire protocol. The DS MAY
-reject a message based on a missing LargeObjectCarrier, or on a
-LargeObjectCarrier that is missing the large objects that clients will need to
-process a message, if its local deployment policy requires senders to provide
+the recipient already has cached, or to distribute partial-commit ciphertexts
+(see {{slim-commit}}). The LargeObjectCarrier is optional in the SlimMLS wire
+protocol. The DS MAY reject a message based on a missing LargeObjectCarrier, or
+on a LargeObjectCarrier that is missing the large objects that clients will need
+to process a message, if its local deployment policy requires senders to provide
 those objects proactively.
-
-On receipt, a client:
-
-1. Computes the reference of every entry in the carrier under the
-   appropriate label, if a carrier is present.
-2. For every large-object `*Ref` that the client needs to process the slim
-   structure or an associated unauthenticated structure, locates the matching
-   object in the carrier, in its local cache, or by using an application-specific
-   fetch mechanism.
-3. If any required object is missing, the client MUST request it through an
-   application-specific mechanism, for example from the DS, or drop the message.
 
 # SlimKeyPackage {#slim-key-package}
 
@@ -324,7 +338,7 @@ inside the SlimLeafNode and the Merkle inclusion proof.
 
 The HPKEPublicKey corresponding to `init_key_ref`, together with any large
 objects referenced by the SlimLeafNodeTBS, is resolved per
-{{large-object-carrier}}.
+{{large-object-retrieval}}.
 
 ## KeyPackage Batch Merkle Tree {#slim-key-package-merkle-tree}
 
@@ -433,7 +447,7 @@ exceptions:
   SlimKeyPackageBatchTBS, resolves the SignaturePublicKey corresponding to
   `signature_key_ref`, and verifies the raw batch signature bytes identified by
   `signature_ref` using VerifyWithLabel label "SlimKeyPackageBatchTBS".
-- All large-object `*Ref` values are resolved per {{large-object-carrier}}.
+- All large-object `*Ref` values are resolved per {{large-object-retrieval}}.
 
 # SlimWelcome {#slim-welcome}
 
@@ -558,7 +572,7 @@ TLS-encoded GroupInfo.
 The outer `optional<WelcomeGroupInfo>` in the SlimWelcome additionally allows
 the sender to omit the GroupInfo. This mode is intended for server-assisted
 deployments where the sender and recipient can obtain the exact GroupInfo by
-some channel other than the SlimWelcome.
+some mechanism outside the SlimWelcome.
 
 A recipient that receives a SlimWelcome whose `group_info` field is
 absent MUST consider the SlimWelcome invalid.
@@ -621,7 +635,7 @@ reduce each `encrypted_path_secret_refs` vector to the subset the recipient
 needs. The reduced path MUST contain enough HPKECiphertextRefs for the recipient
 to decrypt one path secret and derive the remaining path secrets it needs to
 process the Commit. The corresponding HPKECiphertexts, and any HPKEPublicKeys
-that are functionally needed, are resolved per {{large-object-carrier}}.
+that are functionally needed, are resolved per {{large-object-retrieval}}.
 
 The SlimUpdatePath is not signed. Its HPKEPublicKeyRefs are authenticated by
 the parent hash in the committer's SlimLeafNode, as in {{Section 7.9 of
@@ -887,7 +901,7 @@ A recipient processes a SlimCommitMessage by:
 
 1. Resolving the HPKECiphertextRefs and SignatureRefs required for the
    recipient, and any HPKEPublicKeyRefs that are functionally needed, per
-   {{large-object-carrier}}.
+   {{large-object-retrieval}}.
 2. If SlimCommitFramedContentAuthData contains a `signature_ref`, resolving and
    verifying the referenced signature per {{!RFC9420}} using
    SlimCommitFramedContentTBS. Otherwise, verifying the SlimLeafNode signature
@@ -1017,7 +1031,7 @@ The ordering, truncation, and validation rules are the same as for the
 `ratchet_tree` extension in {{Section 12.4.3.3 of !RFC9420}}, except that tree
 hash and parent hash computations use the slim node encodings. The large
 objects referenced by the slim nodes are resolved per
-{{large-object-carrier}}.
+{{large-object-retrieval}}.
 
 In a SlimMLS group, the {{!RFC9420}} `ratchet_tree` extension MUST NOT be used.
 A sender that would include `ratchet_tree` MUST instead include the
@@ -1041,7 +1055,7 @@ In a SlimMLS group, the {{!RFC9420}} `external_pub` extension MUST NOT
 be used. A sender that would include `external_pub` MUST instead
 include the `slim_external_pub` extension, populated with the
 reference to the relevant HPKEPublicKey. The actual public key is
-resolved per {{large-object-carrier}}, as for any other HPKEPublicKeyRef.
+resolved per {{large-object-retrieval}}, as for any other HPKEPublicKeyRef.
 
 
 # Security Considerations
@@ -1062,21 +1076,17 @@ with an HPKECiphertextRef or the referenced HPKECiphertext can only cause the
 recipient to fail reference resolution, decryption, derived-public-key matching,
 parent-hash validation, or confirmation-tag validation.
 
-The LargeObjectCarrier ({{large-object-carrier}}) is unauthenticated by design.
-A Delivery Service or network attacker that withholds, modifies, or substitutes
-carrier entries can only cause a recipient to fail to resolve a reference, which
-is functionally equivalent to dropping the message, which the DS can already do
-under {{!RFC9420}}. A recipient MUST verify that any object it consumes from the
-carrier hashes (under the appropriate label and the ciphersuite hash) to the
-corresponding large-object `*Ref` in the slim structure or associated
-unauthenticated structure before using that object for any cryptographic
-operation.
-
-Because the carrier is unauthenticated, an attacker can also include
-unsolicited or malformed objects in it. Recipients MUST NOT treat the
-carrier as authoritative metadata and MUST ignore objects whose hash does
-not match any reference the recipient needs to process the slim structure or an
-associated unauthenticated structure.
+Large-object retrieval mechanisms ({{large-object-retrieval}}) may be
+unauthenticated. The hash-reference verification in step 2 of that section is
+what provides authentication of the resolved objects, and is what binds them to
+the signed and transcript-hashed slim structures. A Delivery Service or network
+attacker that withholds, modifies, or substitutes objects in any such mechanism
+can only cause a recipient to fail to resolve a reference, which is
+functionally equivalent to dropping the message, which the DS can already do
+under {{!RFC9420}}. An attacker may also surface unsolicited or malformed
+objects through any retrieval mechanism. Recipients MUST NOT treat the contents
+of any retrieval mechanism as authoritative metadata and MUST ignore objects
+whose hash does not match any reference the recipient needs to resolve.
 
 A client that caches resolved large objects across groups MUST index its
 cache by the tuple (reference type, ciphersuite hash function, reference value).
