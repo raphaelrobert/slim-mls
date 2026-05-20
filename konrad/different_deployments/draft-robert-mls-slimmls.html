@@ -1,0 +1,2915 @@
+<!DOCTYPE html>
+<html lang="en" class="Internet-Draft">
+<head>
+<meta charset="utf-8">
+<meta content="Common,Latin" name="scripts">
+<meta content="initial-scale=1.0" name="viewport">
+<title>SlimMLS</title>
+<meta content="Raphael Robert" name="author">
+<meta content="Konrad Kohbrok" name="author">
+<meta content="
+       This document defines SlimMLS, an extension to the Messaging Layer Security
+(MLS) protocol for reducing wire and per-client storage overhead in groups that
+use ciphersuites with large public keys, ciphertexts, signatures, and
+credentials. SlimMLS replaces many large objects that appear in MLS
+authenticated or transcript-hashed structures with typed hash references.
+Clients resolve the referenced objects only when needed, using a per-message
+carrier, a local cache, or an application-specific retrieval channel. The
+extension is most useful when an independent Delivery Service can assist with
+retrieval and per-recipient delivery, although local caching and delayed
+fetching also help without such assistance. SlimMLS defines slim variants of
+KeyPackage, Commit, Welcome, GroupInfo, and message framing. When placing a
+signature outside an encrypted envelope would reveal the signer, SlimMLS keeps
+the signature inside the ciphertext. 
+    " name="description">
+<meta content="xml2rfc 3.33.0" name="generator">
+<meta content="mls" name="keyword">
+<meta content="post-quantum" name="keyword">
+<meta content="bandwidth" name="keyword">
+<meta content="storage" name="keyword">
+<meta content="draft-robert-mls-slimmls-latest" name="ietf.draft">
+<!-- Generator version information:
+  xml2rfc 3.33.0
+    Python 3.12.13
+    ConfigArgParse 1.7
+    google-i18n-address 3.1.1
+    intervaltree 3.2.1
+    Jinja2 3.1.6
+    lxml 6.0.2
+    platformdirs 4.9.6
+    pycountry 24.6.1
+    PyYAML 6.0.3
+    requests 2.33.1
+    wcwidth 0.7.0
+-->
+<link href="draft-robert-mls-slimmls.xml" rel="alternate" type="application/rfc+xml">
+<link href="#copyright" rel="license">
+<style type="text/css">@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local('Lora SemiBold'), local('Lora-SemiBold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-semibold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+}
+
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: light dark;
+  --background-color: #fff;
+  --text-color: #222;
+  --title-color: #191919;
+  --link-color: #2a6496;
+  --highlight-color: #f9f9f9;
+  --line-color: #eee;
+  --pilcrow-weak: #ddd;
+  --pilcrow-strong: #bbb;
+  --small-font-size: 14.5px;
+  --font-mono: 'Oxygen Mono', monospace;
+  --font-title: "Sofia Sans Semi Condensed", sans-serif;
+  scrollbar-color: #bbb #eee;
+}
+body {
+  max-width: 600px;
+  margin: 75px auto;
+  padding: 0 5px;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  font: 16px/22px "Lora", serif;
+  scroll-behavior: smooth;
+}
+
+.ears {
+  display: none;
+}
+
+/* headings */
+section {
+  clear: both;
+}
+.section-number {
+  padding-right: 0.5em;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-title);
+  font-weight: 680;
+  margin: 0.8em 0 0.3em;
+  font-size-adjust: 0.5;
+  color: var(--title-color);
+}
+h1#title {
+  font-size: 32px;
+  line-height: 40px;
+  clear: both;
+}
+h1#title, h1#rfcnum {
+  margin: 1.5em 0 0.2em;
+}
+h1#rfcnum + h1#title {
+  margin: 0.2em 0;
+}
+
+h1, h2, h3 {
+  font-size: 22px;
+  line-height: 27px;
+}
+h4, h5, h6 {
+  font-size: 20px;
+  line-height: 24px;
+}
+
+/* general structure */
+.author {
+  padding-bottom: 0.3em;
+  vertical-align: top;
+}
+#abstract+p {
+  font-size: 18px;
+  line-height: 24px;
+}
+#abstract+p code, #abstract+p samp, #abstract+p tt {
+  font-size: 16px;
+  line-height: 0;
+}
+
+p {
+  padding: 0;
+  margin: 0.5em 0;
+  text-align: left;
+}
+div {
+  margin: 0;
+}
+.alignRight.art-text {
+  background-color: var(--highlight-color);
+  border: 1px solid var(--line-color);
+  border-radius: 3px;
+  padding: 0.5em 1em 0;
+  margin-bottom: 0.5em;
+}
+.alignRight.art-text pre {
+  padding: 0;
+  width: auto;
+}
+.alignRight {
+  margin: 1em 0;
+}
+.alignRight > *:first-child {
+  border: none;
+  margin: 0;
+  float: right;
+  clear: both;
+}
+.alignRight > *:nth-child(2) {
+  clear: both;
+  display: block;
+  border: none;
+}
+svg {
+  display: block;
+}
+/* font-family isn't space-separated, but =~ will have to do */
+svg[font-family~="monospace" i], svg [font-family~="monospace" i] {
+  font-family: var(--font-mono);
+}
+.alignCenter.art-text {
+  background-color: var(--highlight-color);
+  border: 1px solid var(--line-color);
+  border-radius: 3px;
+  padding: 0.5em 1em 0;
+  margin-bottom: 0.5em;
+}
+.alignCenter.art-text pre {
+  padding: 0;
+  width: auto;
+}
+.alignCenter {
+  margin: 1em 0;
+}
+.alignCenter > *:first-child {
+  border: none;
+  /* this isn't optimal, but it's an existence proof.  PrinceXML doesn't
+     support flexbox yet.
+  */
+  display: table;
+  margin: 0 auto;
+}
+
+/* lists */
+ol, ul {
+  padding: 0;
+  margin: 0 0 0.5em 2em;
+  & :is(ol, ul) {
+    margin-left: 1em;
+  }
+}
+li {
+  margin: 0 0 0.25em 0;
+}
+ul.empty, .ulEmpty {
+  list-style-type: none;
+  & li {
+    margin-top: 0.5em;
+  }
+}
+:is(ul, ol).compact, .ulCompact, .olCompact {
+  margin: 0 0 0 2em;
+  & li {
+    margin: 0;
+    & :first-child { margin-top: 0; }
+    & :last-child { margin-bottom: 0; }
+  }
+}
+
+/* definition lists */
+dl {
+  clear: left;
+  --indent: 3ch;
+  /* --indent: attr(indent ch); not supported in any browser, but we can dream */
+  &.olPercent {
+    --indent: 5ch;
+    & > dt {
+      min-width: calc(var(--indent) - 2ch);
+    }
+  }
+  &.olPercent > dt {
+    float: none;
+  }
+
+  dl > dd > & {
+    margin-top: 0.5em;
+    margin-bottom: 0;
+  }
+}
+dl:not(.dlNewline) > dt {
+  float: left;
+  margin-right: 2ch;
+  min-width: 8ch;
+}
+dl > dd {
+  margin-bottom: .8em;
+  margin-left: var(--indent) !important; /* stupid element overrides */
+  min-height: 2ex;
+}
+:is(dl.compact, .dlCompact) > dd {
+  margin-bottom: 0;
+  & > :is(:first-child, .break:first-child + *) {
+    margin-top: 0;
+  }
+  & > :is(:last-child) {
+    margin-bottom: 0;
+  }
+}
+:is(dd, span).break {
+  display: none;
+}
+
+/* links */
+a, a[href].selfRef:hover {
+  text-decoration: none;
+}
+a[href] {
+  color: var(--link-color);
+}
+a[href].selfRef, .iref + a[href].internal {
+  color: var(--text-color);
+}
+a[href]:hover {
+  text-decoration: underline;
+}
+a[href].selfRef:hover {
+  background-color: var(--highlight-color);
+}
+a.xref:is(.cite, .auto), :is(#status-of-memo, #copyright) a {
+  white-space: nowrap;
+}
+
+/* Figures */
+tt, code, pre {
+  background-color: var(--highlight-color);
+  font: 14px/22px var(--font-mono);
+}
+tt, code {
+  /* changing the font for inline elements leads to different ascender
+     and descender heights; as we want to retain baseline alignment,
+     remove leading to avoid altering the final height of lines
+     note: this fails if these blocks take an entire line,
+     a different solution would be great */
+  line-height: 0;
+}
+:is(h1, h2, h3, h4, h5, h6) :is(tt, code) {
+  font-size: 84%;
+}
+pre {
+  border: 1px solid var(--line-color);
+  font-size: 13.5px;
+  line-height: 16px;
+  letter-spacing: -0.2px;
+  margin: 5px;
+  padding: 5px;
+}
+img {
+  max-width: 100%;
+}
+figure {
+  margin: 0.5em 0;
+  padding: 0;
+}
+figure blockquote {
+  margin: 0.8em 0.4em 0.4em;
+}
+figcaption, caption {
+  font-style: italic;
+  margin: 0.5em 1.5em;
+  text-align: left;
+  caption-side: bottom;
+}
+@media screen {
+  /* Auto-collapse boilerplate. */
+  :is(#status-of-memo, #copyright) p {
+    margin: -2px 0;
+    max-height: 0;
+    transition: max-height 2s ease, margin 0.5s ease 0.5s;
+    overflow: hidden;
+  }
+  :is(#status-of-memo, #copyright):hover p,
+  :is(#status-of-memo, #copyright) h2:target ~ p {
+    margin: 0.5em 0;
+    max-height: 500px;
+    overflow: auto;
+  }
+  pre, svg {
+    display: inline-block;
+    /* In the horizontal direction, sometimes people make over-sized figures.
+       Scrollbars for those is therefore necessary: auto adds them as necessary..
+       In the vertical direction, the line-height can combine with the font
+       asender/descender height to produce scrollbars: hidden avoids that. */
+    overflow: auto hidden;
+  }
+  pre {
+    max-width: 100%;
+    width: calc(100% - 22px - 1em);
+  }
+  svg {
+    max-width: calc(100% - 22px - 1em);
+  }
+  figure pre {
+    display: block;
+    width: calc(100% - 25px);
+  }
+  :is(pre, svg) + .pilcrow {
+    display: inline-block;
+    vertical-align: text-bottom;
+    padding-bottom: 8px;
+  }
+}
+
+/* aside, blockquote */
+aside, blockquote {
+  margin-left: 0;
+  padding: 0 2em;
+  font-style: italic;
+}
+blockquote {
+  margin: 1em 0;
+  border-left: 2px var(--pilcrow-strong) solid;
+}
+cite {
+  display: block;
+  text-align: right;
+  font-style: italic;
+}
+
+/* tables */
+table {
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 1em;
+  border-collapse: collapse;
+}
+table.right {
+  margin-left: auto;
+}
+table.center {
+  margin-left: auto;
+  margin-right: auto;
+}
+table.left {
+  margin-right: auto;
+}
+table .text-left {
+  text-align: left;
+}
+table .text-center {
+  text-align: center;
+}
+table .text-right {
+  text-align: right;
+}
+
+thead, tbody {
+  border: 1px solid var(--line-color);
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 5px 10px;
+}
+th {
+  background-color: var(--line-color);
+}
+:is(tr:nth-child(2n), thead+tbody > tr:nth-child(2n+1)) > td {
+  background-color: var(--background-color);
+}
+:is(tr:nth-child(2n+1), thead+tbody > tr:nth-child(2n)) > td {
+  background-color: var(--highlight-color);
+}
+table caption {
+  margin: 0;
+  padding: 3px 0 3px 1em;
+}
+table p {
+  margin: 0;
+}
+
+/* pilcrow */
+a.pilcrow {
+  margin-left: 3px;
+  opacity: 0.2;
+  user-select: none;
+  &[href] {
+    color: var(--pilcrow-weak);
+    &:hover { text-decoration: none; }
+  }
+}
+@media not print {
+  :hover > a.pilcrow, a.pilcrow:focus {
+    opacity: 1;
+  }
+  a.pilcrow[href]:hover {
+    color: var(--pilcrow-strong);
+    background-color: transparent;
+  }
+}
+@media print {
+  a.pilcrow {
+    display: none;
+  }
+}
+
+/* misc */
+hr {
+  border: 0;
+  border-top: 1px solid var(--line-color);
+}
+.bcp14 {
+  font-variant: small-caps;
+  font-weight: 600;
+  font-size: var(--small-font-size);
+}
+.role {
+  font-variant: all-small-caps;
+}
+sub, sup {
+  line-height: 1;
+  font-size: 80%;
+}
+
+/* info block */
+#identifiers {
+  margin: 0;
+  font-size: var(--small-font-size);
+  line-height: 18px;
+  --identifier-width: 15ch;
+  & dt {
+    width: var(--identifier-width);
+    min-width: var(--identifier-width);
+    clear: left;
+    float: left;
+    text-align: right;
+    margin-right: 1ch;
+  }
+  & dd {
+    margin: 0;
+    margin-left: calc(1em + var(--identifier-width)) !important;
+    min-width: 5em;
+  }
+  & .authors {
+    & .author {
+      display: inline-block;
+      margin-right: 1.5em;
+    }
+    & .org {
+      font-style: italic;
+    }
+  }
+}
+
+/* The prepared/rendered info at the very bottom of the page */
+.docInfo {
+  color: #999;
+  font-size: 0.9em;
+  font-style: italic;
+  margin-top: 2em;
+}
+.docInfo .prepared {
+  float: right;
+}
+
+/* table of contents */
+#toc {
+  padding: 0.75em 0 2em 0;
+  margin-bottom: 1em;
+
+  & nav {
+    & ul {
+      margin: 0 0.5em 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    & li {
+      line-height: 1.3em;
+      margin: 2px 0;
+      padding-left: 1.2em;
+      text-indent: -1.2em;
+    }
+  }
+  & a.xref {
+    white-space: normal;
+  }
+}
+
+.references {
+  & > dt {
+    text-align: right;
+    font-weight: bold;
+    min-width: 10ch;
+    margin-right: 1.5ch;
+    &:target::before {
+      content: "⇒";
+      margin: 0 10px 0 -25px;
+    }
+  }
+  & > dd {
+    margin-left: 12ch !important;
+    overflow: visible;
+    & .refInstance {
+      margin-bottom: 0.8em;
+    }
+    & .ascii {
+      margin-bottom: 0.25em;
+    }
+  }
+}
+
+#rfc\.index\.index + ul {
+  margin-left: 0;
+}
+
+/* authors */
+address.vcard {
+  font-style: normal;
+  max-width: 20em;
+  margin: 1em auto 1em 0;
+
+  & .nameRole {
+    font-weight: 700;
+    margin-left: 0;
+  }
+  & .label {
+    margin: 0.5em 0;
+  }
+  & .type {
+    display: none;
+  }
+  & .alternative-contact {
+    margin: 0.5em 0 0.25em 0;
+  }
+  & .non-ascii {
+    margin: 0 0 0 2em;
+  }
+  & div.left {
+    text-align: left;
+  }
+  & div.right {
+    text-align: right;
+  }
+}
+
+hr.addr {
+  border-top: 1px dashed;
+  margin: 0;
+  color: #ddd;
+  max-width: calc(100% - 16px);
+}
+@media (min-width: 500px) {
+  #authors-addresses > section {
+    column-count: 2;
+    column-gap: 20px;
+  }
+  #authors-addresses > section > h2 {
+    column-span: all;
+  }
+  /* hack for break-inside: avoid-column */
+  #authors-addresses address {
+    display: inline-block;
+    break-inside: avoid-column;
+  }
+}
+
+/* Comments */
+.rfcEditorRemove p:first-of-type {
+  font-style: italic;
+}
+.cref {
+  background-color: rgba(249, 232, 105, 0.3);
+  padding: 2px 4px;
+}
+.crefSource {
+  font-style: italic;
+}
+
+@media screen {
+  #toc nav {
+    font-family: var(--font-title);
+    font-weight: 360;
+    & > ul { margin-bottom: 2em; }
+    & ul {
+      margin: 0 0 0 4px;
+      & :is(p, li) {
+        margin: 2px 0;
+      }
+    }
+  }
+  #toc a.toplink {
+    float: right;
+  }
+}
+@media not screen {
+  #toc a.toplink {
+    display: none;
+  }
+}
+
+
+/* TOC layout for smaller screens */
+@media screen and (max-width: 929px) {
+  #toc {
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    padding: 1px 0 0 0;
+    margin: 0;
+    border-bottom: 1px solid #ccc;
+    opacity: 0.6;
+  }
+  #toc h2 {
+    margin: 0;
+    padding: 2px 0 2px 6px;
+    padding-right: 1em;
+    font-size: 18px;
+    line-height: 24px;
+    min-width: 190px;
+    text-align: right;
+    background-color: #444;
+    color: white;
+    cursor: pointer;
+    &::before { /* css hamburger */
+      float: right;
+      position: relative;
+      width: 1em;
+      height: 1px;
+      left: -164px;
+      margin: 8px 0 0 0;
+      background: white none repeat scroll 0 0;
+      box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
+      content: "";
+    }
+  }
+  #toc nav {
+    display: none;
+    background-color: var(--background-color);
+    padding: 0.5em 1em 1em;
+    overflow: auto;
+    overscroll-behavior: contain;
+    height: calc(100vh - 48px);
+    border-left: 1px solid #ddd;
+  }
+  #toc.active {
+    opacity: 1;
+    & nav { display: block; }
+  }
+  /* Make the collapsed ToC header render white on gray also when it's a link */
+  #toc h2 a,
+  #toc h2 a:is(:link, :focus, :hover),
+  #toc a.toplink,
+  #toc a.toplink:hover {
+    color: white;
+    background-color: #444;
+    text-decoration: none;
+  }
+  #toc a.toplink {
+    margin: 2px 0.5em 0;
+  }
+}
+
+/* TOC layout for wide screens */
+@media screen and (min-width: 930px) {
+  body {
+    padding-right: 360px;
+    padding-right: calc(min(180px + 20%, 500px));
+  }
+  #toc {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    right: calc(50vw - 480px);
+    width: 312px;
+    margin: 0;
+    padding: 0;
+    z-index: 1;
+  }
+  #toc h2 {
+    margin: 0;
+    padding: 0.25em 1em 1em 0;
+  }
+  #toc nav {
+    display: block;
+    height: calc(90vh - 84px);
+    bottom: 0;
+    padding: 0.5em 0 2em;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  img { /* future proofing */
+    max-width: 100%;
+    height: auto;
+  }
+  #toc a.toplink {
+    margin: 8px 0.5em 0;
+  }
+}
+
+/* pagination */
+@media print {
+  body {
+    width: 100%;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  #n-copyright-notice {
+    border-bottom: none;
+  }
+  #toc, #n-introduction {
+    page-break-before: always;
+  }
+  #toc {
+    border-top: none;
+    padding-top: 0;
+  }
+  figure, pre, .vcard {
+    page-break-inside: avoid;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  :is(h2, h3, h4, h5, h6)+*, dd {
+    page-break-before: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 10pt;
+  }
+  table {
+    border: 1px solid #ddd;
+  }
+  td {
+    border-top: 1px solid #ddd;
+  }
+}
+
+@page :first {
+  padding-top: 0;
+  @top-left {
+    content: normal;
+    border: none;
+  }
+  @top-center {
+    content: normal;
+    border: none;
+  }
+  @top-right {
+    content: normal;
+    border: none;
+  }
+}
+
+@page {
+  size: A4;
+  margin-bottom: 45mm;
+  padding-top: 20px;
+}
+
+/* Dark mode. */
+@media (prefers-color-scheme: dark) {
+:root {
+  --background-color: #121212;
+  --text-color: #f0f0f0;
+  --title-color: #fff;
+  --link-color: #4da4f0;
+  --highlight-color: #282828;
+  --line-color: #444;
+  --pilcrow-weak: #444;
+  --pilcrow-strong: #666;
+  scrollbar-color: #777 #333;
+}
+}
+
+/* SVG Trick: a prefix match works because only black and white are allowed */
+svg :is([stroke="black"], [stroke^="#000"]) {
+  stroke: var(--text-color);
+}
+svg :is([stroke="white"], [stroke^="#fff"]) {
+  stroke: var(--background-color);
+}
+svg :is([fill="black"], [fill^="#000"], :not([fill])) {
+  fill: var(--text-color);
+}
+svg :is([fill="white"], [fill^="#fff"]) {
+  fill: var(--background-color);
+}
+</style>
+
+</head>
+<body class="xml2rfc">
+<table class="ears">
+<thead><tr>
+<td class="left">Internet-Draft</td>
+<td class="center">SlimMLS</td>
+<td class="right">May 2026</td>
+</tr></thead>
+<tfoot><tr>
+<td class="left">Robert &amp; Kohbrok</td>
+<td class="center">Expires 21 November 2026</td>
+<td class="right">[Page]</td>
+</tr></tfoot>
+</table>
+<div id="external-metadata" class="document-information"></div>
+<div id="internal-metadata" class="document-information">
+<dl id="identifiers">
+<dt class="label-workgroup">Workgroup:</dt>
+<dd class="workgroup">Messaging Layer Security</dd>
+<dt class="label-internet-draft">Internet-Draft:</dt>
+<dd class="internet-draft">draft-robert-mls-slimmls-latest</dd>
+<dt class="label-published">Published:</dt>
+<dd class="published">
+<time datetime="2026-05-20" class="published">20 May 2026</time>
+    </dd>
+<dt class="label-intended-status">Intended Status:</dt>
+<dd class="intended-status">Informational</dd>
+<dt class="label-expires">Expires:</dt>
+<dd class="expires"><time datetime="2026-11-21">21 November 2026</time></dd>
+<dt class="label-authors">Authors:</dt>
+<dd class="authors">
+<div class="author">
+      <div class="author-name">R. Robert</div>
+<div class="org">Phoenix R&amp;D</div>
+</div>
+<div class="author">
+      <div class="author-name">K. Kohbrok</div>
+<div class="org">Phoenix R&amp;D</div>
+</div>
+</dd>
+</dl>
+</div>
+<h1 id="title">SlimMLS</h1>
+<section id="section-abstract">
+      <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
+<p id="section-abstract-1">This document defines SlimMLS, an extension to the Messaging Layer Security
+(MLS) protocol for reducing wire and per-client storage overhead in groups that
+use ciphersuites with large public keys, ciphertexts, signatures, and
+credentials. SlimMLS replaces many large objects that appear in MLS
+authenticated or transcript-hashed structures with typed hash references.
+Clients resolve the referenced objects only when needed, using a per-message
+carrier, a local cache, or an application-specific retrieval channel. The
+extension is most useful when an independent Delivery Service can assist with
+retrieval and per-recipient delivery, although local caching and delayed
+fetching also help without such assistance. SlimMLS defines slim variants of
+KeyPackage, Commit, Welcome, GroupInfo, and message framing. When placing a
+signature outside an encrypted envelope would reveal the signer, SlimMLS keeps
+the signature inside the ciphertext.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+</section>
+<section class="note rfcEditorRemove" id="section-note.1">
+      <h2 id="name-about-this-document">
+<a href="#name-about-this-document" class="section-name selfRef">About This Document</a>
+      </h2>
+<p id="section-note.1-1">This note is to be removed before publishing as an RFC.<a href="#section-note.1-1" class="pilcrow">¶</a></p>
+<p id="section-note.1-2">
+        Status information for this document may be found at <span><a href="https://datatracker.ietf.org/doc/draft-robert-mls-slimmls/">https://datatracker.ietf.org/doc/draft-robert-mls-slimmls/</a></span>.<a href="#section-note.1-2" class="pilcrow">¶</a></p>
+<p id="section-note.1-3">
+        Discussion of this document takes place on the
+        Messaging Layer Security Working Group mailing list (<span><a href="mailto:mls@ietf.org">mailto:mls@ietf.org</a></span>),
+        which is archived at <span><a href="https://mailarchive.ietf.org/arch/browse/mls/">https://mailarchive.ietf.org/arch/browse/mls/</a></span>.
+        Subscribe at <span><a href="https://www.ietf.org/mailman/listinfo/mls/">https://www.ietf.org/mailman/listinfo/mls/</a></span>.<a href="#section-note.1-3" class="pilcrow">¶</a></p>
+<p id="section-note.1-4">Source for this draft and an issue tracker can be found at
+        <span><a href="https://github.com/raphaelrobert/draft-robert-mls-slimmls">https://github.com/raphaelrobert/draft-robert-mls-slimmls</a></span>.<a href="#section-note.1-4" class="pilcrow">¶</a></p>
+</section>
+<div id="status-of-memo">
+<section id="section-boilerplate.1">
+        <h2 id="name-status-of-this-memo">
+<a href="#name-status-of-this-memo" class="section-name selfRef">Status of This Memo</a>
+        </h2>
+<p id="section-boilerplate.1-1">
+        This Internet-Draft is submitted in full conformance with the
+        provisions of BCP 78 and BCP 79.<a href="#section-boilerplate.1-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-2">
+        Internet-Drafts are working documents of the Internet Engineering Task
+        Force (IETF). Note that other groups may also distribute working
+        documents as Internet-Drafts. The list of current Internet-Drafts is
+        at <span><a href="https://datatracker.ietf.org/drafts/current/">https://datatracker.ietf.org/drafts/current/</a></span>.<a href="#section-boilerplate.1-2" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-3">
+        Internet-Drafts are draft documents valid for a maximum of six months
+        and may be updated, replaced, or obsoleted by other documents at any
+        time. It is inappropriate to use Internet-Drafts as reference
+        material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-4">
+        This Internet-Draft will expire on 21 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="copyright">
+<section id="section-boilerplate.2">
+        <h2 id="name-copyright-notice">
+<a href="#name-copyright-notice" class="section-name selfRef">Copyright Notice</a>
+        </h2>
+<p id="section-boilerplate.2-1">
+            Copyright (c) 2026 IETF Trust and the persons identified as the
+            document authors. All rights reserved.<a href="#section-boilerplate.2-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.2-2">
+            This document is subject to BCP 78 and the IETF Trust's Legal
+            Provisions Relating to IETF Documents
+            (<span><a href="https://trustee.ietf.org/license-info">https://trustee.ietf.org/license-info</a></span>) in effect on the date of
+            publication of this document. Please review these documents
+            carefully, as they describe your rights and restrictions with
+            respect to this document. Code Components extracted from this
+            document must include Revised BSD License text as described in
+            Section 4.e of the Trust Legal Provisions and are provided without
+            warranty as described in the Revised BSD License.<a href="#section-boilerplate.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="toc">
+<section id="section-toc.1">
+        <a href="#" onclick="scroll(0,0)" class="toplink">▲</a><h2 id="name-table-of-contents">
+<a href="#name-table-of-contents" class="section-name selfRef">Table of Contents</a>
+        </h2>
+<nav class="toc"><ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1">
+            <p id="section-toc.1-1.1.1" class="keepWithNext"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
+            <p id="section-toc.1-1.2.1" class="keepWithNext"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-conventions-and-definitions" class="internal xref">Conventions and Definitions</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
+            <p id="section-toc.1-1.3.1" class="keepWithNext"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-overview" class="internal xref">Overview</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
+            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-reference-computation" class="internal xref">Reference Computation</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5">
+            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-slimmls-structs" class="internal xref">SlimMLS Structs</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-slimgroupinfo" class="internal xref">SlimGroupInfo</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
+            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-large-object-retrieval" class="internal xref">Large Object Retrieval</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.1">
+                <p id="section-toc.1-1.6.2.1.1"><a href="#section-6.1" class="auto internal xref">6.1</a>.  <a href="#name-large-object-carrier" class="internal xref">Large Object Carrier</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
+            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-slimkeypackage" class="internal xref">SlimKeyPackage</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.1">
+                <p id="section-toc.1-1.7.2.1.1"><a href="#section-7.1" class="auto internal xref">7.1</a>.  <a href="#name-keypackage-batch-merkle-tre" class="internal xref">KeyPackage Batch Merkle Tree</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2">
+                <p id="section-toc.1-1.7.2.2.1"><a href="#section-7.2" class="auto internal xref">7.2</a>.  <a href="#name-outerkeypackagehash-compone" class="internal xref">OuterKeyPackageHash component</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.3">
+                <p id="section-toc.1-1.7.2.3.1"><a href="#section-7.3" class="auto internal xref">7.3</a>.  <a href="#name-creation-and-processing" class="internal xref">Creation and Processing</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8">
+            <p id="section-toc.1-1.8.1"><a href="#section-8" class="auto internal xref">8</a>.  <a href="#name-slimwelcome" class="internal xref">SlimWelcome</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.1">
+                <p id="section-toc.1-1.8.2.1.1"><a href="#section-8.1" class="auto internal xref">8.1</a>.  <a href="#name-sender-and-ds-behavior" class="internal xref">Sender and DS Behavior</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.2">
+                <p id="section-toc.1-1.8.2.2.1"><a href="#section-8.2" class="auto internal xref">8.2</a>.  <a href="#name-slimencryptedgroupsecrets" class="internal xref">SlimEncryptedGroupSecrets</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.3">
+                <p id="section-toc.1-1.8.2.3.1"><a href="#section-8.3" class="auto internal xref">8.3</a>.  <a href="#name-welcomegroupinfo" class="internal xref">WelcomeGroupInfo</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9">
+            <p id="section-toc.1-1.9.1"><a href="#section-9" class="auto internal xref">9</a>.  <a href="#name-slimcommit" class="internal xref">SlimCommit</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.1">
+                <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-slimupdatepath" class="internal xref">SlimUpdatePath</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.2">
+                <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-slim-framing" class="internal xref">Slim Framing</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.3">
+                <p id="section-toc.1-1.9.2.3.1"><a href="#section-9.3" class="auto internal xref">9.3</a>.  <a href="#name-slimmessage" class="internal xref">SlimMessage</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.4">
+                <p id="section-toc.1-1.9.2.4.1"><a href="#section-9.4" class="auto internal xref">9.4</a>.  <a href="#name-single-signature-constructi" class="internal xref">Single Signature Construction</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.5">
+                <p id="section-toc.1-1.9.2.5.1"><a href="#section-9.5" class="auto internal xref">9.5</a>.  <a href="#name-sender-ds-and-recipient-beh" class="internal xref">Sender, DS, and Recipient Behavior</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10">
+            <p id="section-toc.1-1.10.1"><a href="#section-10" class="auto internal xref">10</a>. <a href="#name-optimizing-payload-sizes" class="internal xref">Optimizing Payload Sizes</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.1">
+                <p id="section-toc.1-1.10.2.1.1"><a href="#section-10.1" class="auto internal xref">10.1</a>.  <a href="#name-storing-partial-trees" class="internal xref">Storing Partial Trees</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.2">
+                <p id="section-toc.1-1.10.2.2.1"><a href="#section-10.2" class="auto internal xref">10.2</a>.  <a href="#name-omitting-cached-large-objec" class="internal xref">Omitting Cached Large Objects</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.3">
+                <p id="section-toc.1-1.10.2.3.1"><a href="#section-10.3" class="auto internal xref">10.3</a>.  <a href="#name-cross-group-credential-cach" class="internal xref">Cross-group Credential Caching</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.4">
+                <p id="section-toc.1-1.10.2.4.1"><a href="#section-10.4" class="auto internal xref">10.4</a>.  <a href="#name-delayed-fetching-of-large-o" class="internal xref">Delayed Fetching of Large Objects</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11">
+            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-wire-formats" class="internal xref">Wire Formats</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12">
+            <p id="section-toc.1-1.12.1"><a href="#section-12" class="auto internal xref">12</a>. <a href="#name-the-slim_mls-extension" class="internal xref">The slim_mls Extension</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
+            <p id="section-toc.1-1.13.1"><a href="#section-13" class="auto internal xref">13</a>. <a href="#name-the-slim_ratchet_tree-exten" class="internal xref">The slim_ratchet_tree Extension</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14">
+            <p id="section-toc.1-1.14.1"><a href="#section-14" class="auto internal xref">14</a>. <a href="#name-the-slim_external_pub-exten" class="internal xref">The slim_external_pub Extension</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15">
+            <p id="section-toc.1-1.15.1"><a href="#section-15" class="auto internal xref">15</a>. <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16">
+            <p id="section-toc.1-1.16.1"><a href="#section-16" class="auto internal xref">16</a>. <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.1">
+                <p id="section-toc.1-1.16.2.1.1"><a href="#section-16.1" class="auto internal xref">16.1</a>.  <a href="#name-slimmls-mls-extension-types" class="internal xref">SlimMLS MLS Extension Types</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.2">
+                <p id="section-toc.1-1.16.2.2.1"><a href="#section-16.2" class="auto internal xref">16.2</a>.  <a href="#name-slimmls-wire-formats" class="internal xref">SlimMLS Wire Formats</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.17">
+            <p id="section-toc.1-1.17.1"><a href="#section-17" class="auto internal xref">17</a>. <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.18">
+            <p id="section-toc.1-1.18.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.19">
+            <p id="section-toc.1-1.19.1"><a href="#appendix-B" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
+</li>
+        </ul>
+</nav>
+</section>
+</div>
+<div id="introduction">
+<section id="section-1">
+      <h2 id="name-introduction">
+<a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
+      </h2>
+<p id="section-1-1">Post-quantum (PQ) signature and key encapsulation mechanism (KEM) primitives can
+have substantially larger keys, ciphertexts, and signatures than their
+classical counterparts. Large credentials can create similar pressure, including
+in deployments that do not otherwise use large ciphersuite objects. In an MLS
+group <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, these values appear as larger LeafNodes, parent nodes,
+Welcomes, Commits, GroupInfos, and messages. The increase is visible both on
+the wire and in client storage.<a href="#section-1-1" class="pilcrow">¶</a></p>
+<p id="section-1-2">In MLS, many of these values are embedded in structures that are signed,
+covered by tree hashes or parent hashes, or fed into transcript hashes. A
+Delivery Service (DS) can already choose how to route messages, but it cannot
+remove or replace authenticated bytes without invalidating the object. This
+limits cache-aware delivery, server-assisted fanout, and operation with clients
+that hold only part of the group state.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<p id="section-1-3">SlimMLS addresses this by separating object identity from object delivery. The
+authenticated or transcript-hashed structure carries a typed hash reference, and
+the referenced object is delivered through a per-message carrier, a local cache,
+or an application-specific retrieval channel. Recipients verify each object by
+recomputing the reference before using it.<a href="#section-1-3" class="pilcrow">¶</a></p>
+<p id="section-1-4">The largest benefits come from deployments where the DS is an independent
+server that can assist clients. In such deployments, the DS can omit objects a
+recipient already has, reduce update path ciphertexts to the subset each
+recipient needs, and supply GroupInfo separately from a SlimWelcome. Deployments
+without an assisting DS still benefit from smaller authenticated state, local
+caches of credentials and keys, and the ability to defer fetching large objects
+until they are needed.<a href="#section-1-4" class="pilcrow">¶</a></p>
+<p id="section-1-5">The main protocol changes are:<a href="#section-1-5" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-1-6.1">
+          <p id="section-1-6.1.1">SlimKeyPackages replace KeyPackages and batch the signatures needed to
+authenticate multiple LeafNodes.<a href="#section-1-6.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-1-6.2">
+          <p id="section-1-6.2.1">SlimCommits carry commit content separately from update path delivery data, so
+the Delivery Service can deliver only the ciphertexts each recipient needs.<a href="#section-1-6.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-1-6.3">
+          <p id="section-1-6.3.1">SlimWelcomes adapt Welcome messages to slim KeyPackage references and
+server-assisted GroupInfo delivery.<a href="#section-1-6.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-1-6.4">
+          <p id="section-1-6.4.1">Slim message framing and SlimGroupInfo define when signatures are represented
+by references and when the raw signature must remain inside encrypted
+plaintext to avoid revealing the sender.<a href="#section-1-6.4.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-1-7">This pattern is not new in MLS. <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> already uses RefHash-based
+references such as KeyPackageRef and ProposalRef. SlimMLS generalizes the
+mechanism.<a href="#section-1-7" class="pilcrow">¶</a></p>
+<p id="section-1-8">[[TODO: quantify wire and storage savings for representative PQ
+ciphersuites once the specification stabilizes.]]<a href="#section-1-8" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="conventions-and-definitions">
+<section id="section-2">
+      <h2 id="name-conventions-and-definitions">
+<a href="#section-2" class="section-number selfRef">2. </a><a href="#name-conventions-and-definitions" class="section-name selfRef">Conventions and Definitions</a>
+      </h2>
+<p id="section-2-1">The key words "<span class="bcp14">MUST</span>", "<span class="bcp14">MUST NOT</span>", "<span class="bcp14">REQUIRED</span>", "<span class="bcp14">SHALL</span>", "<span class="bcp14">SHALL NOT</span>", "<span class="bcp14">SHOULD</span>", "<span class="bcp14">SHOULD NOT</span>", "<span class="bcp14">RECOMMENDED</span>", "<span class="bcp14">NOT RECOMMENDED</span>",
+"<span class="bcp14">MAY</span>", and "<span class="bcp14">OPTIONAL</span>" in this document are to be interpreted as
+described in BCP 14 <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</span> <span>[<a href="#RFC8174" class="cite xref">RFC8174</a>]</span> when, and only when, they
+appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶</a></p>
+<p id="section-2-2">This document uses the TLS presentation language and notation of
+<span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>. Familiarity with MLS <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> is assumed.<a href="#section-2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="overview">
+<section id="section-3">
+      <h2 id="name-overview">
+<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-overview" class="section-name selfRef">Overview</a>
+      </h2>
+<p id="section-3-1">A SlimMLS group is an MLS group whose GroupContext carries the <code>slim_mls</code>
+extension (<a href="#slim-mls-extension" class="auto internal xref">Section 12</a>). In such a group:<a href="#section-3-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3-2.1">
+          <p id="section-3-2.1.1">In structures derived by mechanical substitution, each HPKEPublicKey,
+SignaturePublicKey, Credential, HPKECiphertext, or signature is replaced with
+a hash reference of the corresponding type. Structures specified explicitly in
+this document define their own replacements and exceptions.<a href="#section-3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-3-2.2">
+          <p id="section-3-2.2.1">The referenced large objects are retrieved per <a href="#large-object-retrieval" class="auto internal xref">Section 6</a> if
+and when necessary.<a href="#section-3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+</section>
+</div>
+<div id="ref-types">
+<section id="section-4">
+      <h2 id="name-reference-computation">
+<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-reference-computation" class="section-name selfRef">Reference Computation</a>
+      </h2>
+<p id="section-4-1">All new references are computed in the same style as KeyPackageRef in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-5.2" class="relref">Section 5.2</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, i.e., using RefHash instantiated with the group's ciphersuite
+hash function and a label unique to the referenced object type. Inputs are
+TLS-encoded per <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-4-1" class="pilcrow">¶</a></p>
+<p id="section-4-2">The following reference types are defined:<a href="#section-4-2" class="pilcrow">¶</a></p>
+<table class="center" id="table-1">
+        <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
+<thead>
+          <tr>
+            <th class="text-left" rowspan="1" colspan="1">Referenced value</th>
+            <th class="text-left" rowspan="1" colspan="1">Reference type</th>
+            <th class="text-left" rowspan="1" colspan="1">RefHash label</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKey</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKeyRef</td>
+            <td class="text-left" rowspan="1" colspan="1">"MLS 1.0 SlimMLS HPKEPublicKey"</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">SignaturePublicKey</td>
+            <td class="text-left" rowspan="1" colspan="1">SignaturePublicKeyRef</td>
+            <td class="text-left" rowspan="1" colspan="1">"MLS 1.0 SlimMLS SignaturePublicKey"</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Credential</td>
+            <td class="text-left" rowspan="1" colspan="1">CredentialRef</td>
+            <td class="text-left" rowspan="1" colspan="1">"MLS 1.0 SlimMLS Credential"</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">HPKECiphertext</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKECiphertextRef</td>
+            <td class="text-left" rowspan="1" colspan="1">"MLS 1.0 SlimMLS HPKECiphertext"</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Signature</td>
+            <td class="text-left" rowspan="1" colspan="1">SignatureRef</td>
+            <td class="text-left" rowspan="1" colspan="1">"MLS 1.0 SlimMLS Signature"</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">SlimKeyPackage</td>
+            <td class="text-left" rowspan="1" colspan="1">SlimKeyPackageRef</td>
+            <td class="text-left" rowspan="1" colspan="1">"MLS 1.0 SlimMLS KeyPackage Reference"</td>
+          </tr>
+        </tbody>
+      </table>
+<p id="section-4-4">Each reference is <code>opaque&lt;V&gt;</code> where <code>V</code> is the output length of the
+ciphersuite hash function.<a href="#section-4-4" class="pilcrow">¶</a></p>
+<p id="section-4-5">For a SlimKeyPackageRef, the value input is the TLS-encoded SlimKeyPackage.
+SlimKeyPackageRef is used to identify the recipient of a SlimWelcome; it is not
+a large-object reference and has no corresponding LargeObjectCarrier entry.<a href="#section-4-5" class="pilcrow">¶</a></p>
+<p id="section-4-6">SignatureRef is used for signature fields that appear in slim structures unless
+this document requires the raw signature to remain inside an encrypted envelope.
+It is also used for detached signatures referenced by slim structures, such as
+the SlimKeyPackage batch signature (<a href="#slim-key-package" class="auto internal xref">Section 7</a>).<a href="#section-4-6" class="pilcrow">¶</a></p>
+<p id="section-4-7">Some signature fields use SignatureOrRef, whose variant is constrained by the
+wire envelope that carries the structure:<a href="#section-4-7" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-4-8">
+<pre>
+enum {
+  reserved(0),
+  signature(1),
+  signature_ref(2),
+  (255)
+} SignatureOrRefType;
+
+struct {
+  SignatureOrRefType signature_type;
+  select (SignatureOrRef.signature_type) {
+    case signature:
+      Signature signature;
+    case signature_ref:
+      SignatureRef signature_ref;
+  };
+} SignatureOrRef;
+</pre><a href="#section-4-8" class="pilcrow">¶</a>
+</div>
+<p id="section-4-9">When <code>signature_type = signature_ref</code>, the raw signature bytes are resolved per
+<a href="#large-object-retrieval" class="auto internal xref">Section 6</a>. When <code>signature_type = signature</code>, the raw
+signature bytes are carried inline and <span class="bcp14">MUST NOT</span> be sent outside the encrypted
+envelope in a LargeObjectCarrier.<a href="#section-4-9" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="slim-structs">
+<section id="section-5">
+      <h2 id="name-slimmls-structs">
+<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-slimmls-structs" class="section-name selfRef">SlimMLS Structs</a>
+      </h2>
+<p id="section-5-1">For every <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> struct not given an explicit replacement in this document
+that embeds an HPKEPublicKey, SignaturePublicKey, Credential, HPKECiphertext, or
+signature, SlimMLS defines a corresponding "Slim*" struct that is identical to
+the original except that each occurrence of a large object is replaced by the
+reference type from <a href="#ref-types" class="auto internal xref">Section 4</a> and that each occurrence of a struct for which
+there exists a Slim equivalent is replaced by that equivalent.
+Tree hashes and parent hashes are likewise computed over the slim encodings, so
+the reference values stand in for the corresponding large objects in these
+computations.<a href="#section-5-1" class="pilcrow">¶</a></p>
+<p id="section-5-2">The following signatures use SignatureOrRef because their correct presentation
+depends on whether the signature is carried inside an encrypted envelope:<a href="#section-5-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5-3.1">
+          <p id="section-5-3.1.1">an encrypted GroupInfo carried in a SlimWelcome, whose signature remains
+inline inside the encrypted GroupInfo plaintext, and<a href="#section-5-3.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-5-3.2">
+          <p id="section-5-3.2.1">a SlimPrivateMessage framing signature, which remains inline inside the
+encrypted SlimPrivateMessageContent.<a href="#section-5-3.2.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-5-4">When either signature is carried inside an encrypted envelope, it <span class="bcp14">MUST</span> use the
+<code>signature</code> variant.<a href="#section-5-4" class="pilcrow">¶</a></p>
+<p id="section-5-5">Welcome, KeyPackage, and Commit are not derived by mechanical substitution.
+They are replaced by the SlimWelcome struct (<a href="#slim-welcome" class="auto internal xref">Section 8</a>), the
+SlimKeyPackage struct (<a href="#slim-key-package" class="auto internal xref">Section 7</a>), and the SlimCommit struct
+(<a href="#slim-commit" class="auto internal xref">Section 9</a>) respectively. As a consequence, the UpdatePath struct does not
+appear in a SlimMLS group. Its contents are split between SlimCommit (which
+carries the committer's SlimLeafNode) and SlimUpdatePath (which carries the path
+nodes).<a href="#section-5-5" class="pilcrow">¶</a></p>
+<p id="section-5-6">In a SlimMLS group, the slim struct is sent on the wire wherever <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>
+would specify the original struct. Validation rules of <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> apply in
+the same way. References are only replaced by the corresponding large objects if
+functionally necessary (e.g. to verify a signature, encrypt a ciphertext, or
+retrieve referenced signature bytes).<a href="#section-5-6" class="pilcrow">¶</a></p>
+<p id="section-5-7">The <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> structs affected, the large objects they embed, and the
+SlimMLS replacements are listed below. Structs whose only embedded large
+objects appear via a nested struct (e.g., proposals that carry a
+LeafNode or KeyPackage) inherit slim variants implicitly via the slim
+nested struct.<a href="#section-5-7" class="pilcrow">¶</a></p>
+<table class="center" id="table-2">
+        <caption><a href="#table-2" class="selfRef">Table 2</a></caption>
+<thead>
+          <tr>
+            <th class="text-left" rowspan="1" colspan="1">RFC 9420 struct</th>
+            <th class="text-left" rowspan="1" colspan="1">Embedded large object(s)</th>
+            <th class="text-left" rowspan="1" colspan="1">SlimMLS replacement(s)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">LeafNode</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKey, SignaturePublicKey, Credential, signature</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKeyRef, SignaturePublicKeyRef, CredentialRef, SignatureRef</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">ParentNode</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKey</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKeyRef</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">ParentHashInput</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKey</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKeyRef</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">UpdatePathNode</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKey, HPKECiphertext (vector)</td>
+            <td class="text-left" rowspan="1" colspan="1">HPKEPublicKeyRef, HPKECiphertextRef (vector)</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Signature-bearing structs except SignatureOrRef cases</td>
+            <td class="text-left" rowspan="1" colspan="1">signature</td>
+            <td class="text-left" rowspan="1" colspan="1">SignatureRef</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Add proposal</td>
+            <td class="text-left" rowspan="1" colspan="1">KeyPackage</td>
+            <td class="text-left" rowspan="1" colspan="1">SlimKeyPackage</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">Update proposal</td>
+            <td class="text-left" rowspan="1" colspan="1">LeafNode</td>
+            <td class="text-left" rowspan="1" colspan="1">SlimLeafNode</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">ratchet_tree extension</td>
+            <td class="text-left" rowspan="1" colspan="1">LeafNode, ParentNode</td>
+            <td class="text-left" rowspan="1" colspan="1">slim_ratchet_tree extension with SlimLeafNode, SlimParentNode</td>
+          </tr>
+        </tbody>
+      </table>
+<p id="section-5-9">The following slim tree structures are used in tree-hash and parent-hash
+computations:<a href="#section-5-9" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5-10">
+<pre>
+struct {
+  HPKEPublicKeyRef encryption_key_ref;
+  opaque           parent_hash&lt;V&gt;;
+  uint32           unmerged_leaves&lt;V&gt;;
+} SlimParentNode;
+
+struct {
+  HPKEPublicKeyRef encryption_key_ref;
+  opaque           parent_hash&lt;V&gt;;
+  opaque           original_sibling_tree_hash&lt;V&gt;;
+} SlimParentHashInput;
+</pre><a href="#section-5-10" class="pilcrow">¶</a>
+</div>
+<p id="section-5-11">SlimParentNode replaces ParentNode. SlimParentHashInput replaces the
+ParentHashInput defined in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.9" class="relref">Section 7.9</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-5-11" class="pilcrow">¶</a></p>
+<p id="section-5-12">The exact TLS presentation of each other slim struct is obtained by mechanical
+substitution against <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> and is not repeated here.<a href="#section-5-12" class="pilcrow">¶</a></p>
+<p id="section-5-13">[[TODO: provide explicit TLS presentations for each slim variant in a
+later revision.]]<a href="#section-5-13" class="pilcrow">¶</a></p>
+<div id="slim-group-info">
+<section id="section-5.1">
+        <h3 id="name-slimgroupinfo">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-slimgroupinfo" class="section-name selfRef">SlimGroupInfo</a>
+        </h3>
+<p id="section-5.1-1">SlimGroupInfo is the slim replacement for the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> GroupInfo struct. It
+uses the same fields and verification rules as GroupInfo, except that
+GroupInfo extensions use SlimMLS replacements and the signature is represented
+as SignatureOrRef.<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.1-2">
+<pre>
+struct {
+  GroupContext group_context;
+  Extension extensions&lt;V&gt;;
+  MAC confirmation_tag;
+  uint32 signer;
+} SlimGroupInfoTBS;
+
+struct {
+  GroupContext group_context;
+  Extension extensions&lt;V&gt;;
+  MAC confirmation_tag;
+  uint32 signer;
+
+  /*
+    SignWithLabel(., "GroupInfoTBS", SlimGroupInfoTBS)
+  */
+  SignatureOrRef signature;
+} SlimGroupInfo;
+</pre><a href="#section-5.1-2" class="pilcrow">¶</a>
+</div>
+<p id="section-5.1-3">The signature is computed and verified as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, except that the
+to-be-signed content is SlimGroupInfoTBS. A standalone SlimGroupInfo, or a
+SlimGroupInfo carried in <code>WelcomeGroupInfo.info_type = plaintext</code>, <span class="bcp14">MUST</span> use
+<code>signature_type = signature_ref</code>. A SlimGroupInfo encrypted into
+<code>WelcomeGroupInfo.info_type = encrypted</code> <span class="bcp14">MUST</span> use <code>signature_type = signature</code>
+so that the raw signature is protected by the SlimWelcome encryption.<a href="#section-5.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="large-object-retrieval">
+<section id="section-6">
+      <h2 id="name-large-object-retrieval">
+<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-large-object-retrieval" class="section-name selfRef">Large Object Retrieval</a>
+      </h2>
+<p id="section-6-1">References to large objects in SlimMLS structures, in their associated companion
+structures (e.g., SlimUpdatePath, <a href="#slim-commit" class="auto internal xref">Section 9</a>), and in GroupInfo extensions
+defined by this document <span class="bcp14">MUST</span> be resolved to the corresponding large objects
+when necessary for MLS operations or validation checks.<a href="#section-6-1" class="pilcrow">¶</a></p>
+<p id="section-6-2">SlimMLS defines three retrieval channels:<a href="#section-6-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6-3.1">
+          <p id="section-6-3.1.1">The LargeObjectCarrier (<a href="#large-object-carrier" class="auto internal xref">Section 6.1</a>), specified in this
+document.<a href="#section-6-3.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-6-3.2">
+          <p id="section-6-3.2.1">A client-local cache of previously resolved objects.<a href="#section-6-3.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-6-3.3">
+          <p id="section-6-3.3.1">An application-specific fetch mechanism.<a href="#section-6-3.3.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-6-4">Applications can decide how or if they use one or more retrieval channels.<a href="#section-6-4" class="pilcrow">¶</a></p>
+<p id="section-6-5">On receipt of a SlimMLS structure, a client:<a href="#section-6-5" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-6-6">
+<li id="section-6-6.1">
+          <p id="section-6-6.1.1">For every large-object <code>*Ref</code> it needs to process the structure or any
+associated companion structure, locates a candidate object through any of the
+three channels above.<a href="#section-6-6.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-6-6.2">
+          <p id="section-6-6.2.1">Computes the reference of each candidate object under the appropriate
+label (<a href="#ref-types" class="auto internal xref">Section 4</a>) and verifies that it equals the <code>*Ref</code> being
+resolved. A candidate object whose reference does not match <span class="bcp14">MUST NOT</span> be
+used for any cryptographic operation.<a href="#section-6-6.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-6-6.3">
+          <p id="section-6-6.3.1">If a required <code>*Ref</code> cannot be resolved through any channel, the client <span class="bcp14">MUST</span>
+either request the missing object through an application-specific mechanism,
+for example from the DS, or drop the message.<a href="#section-6-6.3.1" class="pilcrow">¶</a></p>
+</li>
+      </ol>
+<div id="large-object-carrier">
+<section id="section-6.1">
+        <h3 id="name-large-object-carrier">
+<a href="#section-6.1" class="section-number selfRef">6.1. </a><a href="#name-large-object-carrier" class="section-name selfRef">Large Object Carrier</a>
+        </h3>
+<p id="section-6.1-1">A client sending a SlimMLS struct over the wire <span class="bcp14">MAY</span> also send a
+LargeObjectCarrier struct that contains a subset of the large objects referenced
+by the SlimMLS struct or by an associated structure such as SlimUpdatePath
+(<a href="#slim-commit" class="auto internal xref">Section 9</a>).<a href="#section-6.1-1" class="pilcrow">¶</a></p>
+<p id="section-6.1-2">This document does not define a single MLSMessage wrapper for
+LargeObjectCarrier. When a carrier is sent on the wire, its encoding,
+multiplexing, and association with the SlimMLS message are provided by the
+application or DS protocol using SlimMLS.<a href="#section-6.1-2" class="pilcrow">¶</a></p>
+<p id="section-6.1-3">For each large-object reference type that appears in a slim structure or an
+associated structure, the LargeObjectCarrier contains a vector of the
+corresponding large objects:<a href="#section-6.1-3" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-6.1-4">
+<pre>
+struct {
+  HPKEPublicKey      hpke_public_keys&lt;V&gt;;
+  SignaturePublicKey signature_public_keys&lt;V&gt;;
+  Credential         credentials&lt;V&gt;;
+  HPKECiphertext     hpke_ciphertexts&lt;V&gt;;
+  Signature          signatures&lt;V&gt;;
+} LargeObjectCarrier;
+</pre><a href="#section-6.1-4" class="pilcrow">¶</a>
+</div>
+<p id="section-6.1-5">The carrier is NOT part of the signed structure. The DS <span class="bcp14">MAY</span> add, remove,
+reorder, or substitute entries on a per-recipient basis, e.g., to omit objects
+the recipient already has cached, or to distribute SlimUpdatePath ciphertexts
+(see <a href="#slim-commit" class="auto internal xref">Section 9</a>). The LargeObjectCarrier is optional in the SlimMLS wire
+protocol. The DS <span class="bcp14">MAY</span> reject a message based on a missing LargeObjectCarrier, or
+on a LargeObjectCarrier that is missing the large objects that clients will need
+to process a message, if its local deployment policy requires senders to provide
+those objects proactively.<a href="#section-6.1-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="slim-key-package">
+<section id="section-7">
+      <h2 id="name-slimkeypackage">
+<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-slimkeypackage" class="section-name selfRef">SlimKeyPackage</a>
+      </h2>
+<p id="section-7-1">SlimKeyPackage applies the slim reference replacement to KeyPackage and
+amortizes KeyPackage authentication across a batch of KeyPackages uploaded by
+the same client. The signature around the KeyPackage is omitted, and the
+per-KeyPackage LeafNode signature is replaced by a detached batch signature over
+the root of a Merkle tree. The leaves of this tree are the SlimLeafNodeTBS
+values of the SlimKeyPackages in the batch.<a href="#section-7-1" class="pilcrow">¶</a></p>
+<p id="section-7-2">In a SlimMLS group, an <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> KeyPackage <span class="bcp14">MUST NOT</span> be used to add a new
+member: Add proposals <span class="bcp14">MUST</span> carry a SlimKeyPackage, and standalone KeyPackage
+publication <span class="bcp14">MUST</span> use the <code>mls_slim_key_package</code> wire format
+(<a href="#wire-formats" class="auto internal xref">Section 11</a>). A recipient <span class="bcp14">MUST</span> reject any Add proposal or wire-format
+message carrying an <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> KeyPackage in the context of a group with the
+<code>slim_mls</code> extension.<a href="#section-7-2" class="pilcrow">¶</a></p>
+<p id="section-7-3"><code>SlimLeafNodeTBS</code> denotes the LeafNodeTBS input defined by <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> after
+applying the slim substitutions in <a href="#slim-structs" class="auto internal xref">Section 5</a>. It is the unsigned part of
+a SlimLeafNode and carries no signature field.<a href="#section-7-3" class="pilcrow">¶</a></p>
+<p id="section-7-4">A SlimKeyPackage is partitioned into an OuterSlimKeyPackage (the fields of a
+KeyPackage other than the LeafNode and signature), a SlimLeafNodeTBS, a
+reference to the detached batch signature, and a Merkle inclusion proof:<a href="#section-7-4" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7-5">
+<pre>
+struct {
+  ProtocolVersion  version;
+  CipherSuite      cipher_suite;
+  HPKEPublicKeyRef init_key_ref;
+  Extension        extensions&lt;V&gt;;
+} OuterSlimKeyPackage;
+
+struct {
+  opaque sibling_hash&lt;V&gt;;
+} SlimKeyPackageMerkleProofNode;
+
+struct {
+  uint32                         leaf_index;
+  uint32                         tree_size;
+  SlimKeyPackageMerkleProofNode  path&lt;V&gt;;
+} SlimKeyPackageMerkleProof;
+
+struct {
+  ProtocolVersion       version;
+  CipherSuite           cipher_suite;
+  SignaturePublicKeyRef signature_key_ref;
+  uint32                tree_size;
+  opaque                merkle_root&lt;V&gt;;
+} SlimKeyPackageBatchTBS;
+
+struct {
+  OuterSlimKeyPackage              outer_key_package;
+  SlimLeafNode                     leaf_node;
+  SlimKeyPackageMerkleProof        proof;
+} SlimKeyPackage;
+</pre><a href="#section-7-5" class="pilcrow">¶</a>
+</div>
+<p id="section-7-6">A SlimKeyPackage carries no outer signature and no per-package LeafNode
+signature. Authenticity of <code>outer_key_package</code> is provided by an
+OuterKeyPackageHash component (<a href="#outer-key-package-hash" class="auto internal xref">Section 7.2</a>) placed in the
+SlimLeafNode's <code>app_data_dictionary</code> extension. Authenticity of the
+SlimLeafNode, including this component, is provided by the batch signature
+inside the SlimLeafNode and the Merkle inclusion proof.<a href="#section-7-6" class="pilcrow">¶</a></p>
+<p id="section-7-7">The HPKEPublicKey corresponding to <code>init_key_ref</code>, together with any large
+objects referenced by the SlimLeafNodeTBS, is resolved per
+<a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-7-7" class="pilcrow">¶</a></p>
+<div id="slim-key-package-merkle-tree">
+<section id="section-7.1">
+        <h3 id="name-keypackage-batch-merkle-tre">
+<a href="#section-7.1" class="section-number selfRef">7.1. </a><a href="#name-keypackage-batch-merkle-tre" class="section-name selfRef">KeyPackage Batch Merkle Tree</a>
+        </h3>
+<p id="section-7.1-1">The Merkle tree for a SlimKeyPackage batch is computed under the hash function
+of the SlimKeyPackage ciphersuite. A batch <span class="bcp14">MUST</span> contain at least one leaf. All
+SlimKeyPackages in a batch <span class="bcp14">MUST</span> have the same <code>version</code>, <code>cipher_suite</code>, and
+<code>signature_key_ref</code>.<a href="#section-7.1-1" class="pilcrow">¶</a></p>
+<p id="section-7.1-2">The leaf hash for a SlimLeafNodeTBS is computed over the TLS-encoded
+SlimLeafNodeTBS:<a href="#section-7.1-2" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.1-3">
+<pre>
+HashWithLabel("SlimKeyPackageLeaf", SlimLeafNodeTBS)
+</pre><a href="#section-7.1-3" class="pilcrow">¶</a>
+</div>
+<p id="section-7.1-4">The parent hash for two child hashes is computed over their TLS-encoded ordered
+pair:<a href="#section-7.1-4" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.1-5">
+<pre>
+struct {
+  opaque left&lt;V&gt;;
+  opaque right&lt;V&gt;;
+} SlimKeyPackageMerkleParentInput;
+
+HashWithLabel("SlimKeyPackageNode", SlimKeyPackageMerkleParentInput)
+</pre><a href="#section-7.1-5" class="pilcrow">¶</a>
+</div>
+<p id="section-7.1-6">The tree is built bottom-up from the ordered list of leaf hashes. At each level,
+adjacent nodes are paired from left to right. If the final node at a level has
+no sibling, it is promoted unchanged to the next level. The single node
+remaining after this process is the Merkle root.<a href="#section-7.1-6" class="pilcrow">¶</a></p>
+<p id="section-7.1-7">The <code>path</code> entries in SlimKeyPackageMerkleProof are ordered from the leaf level
+toward the root. To verify a proof, a recipient starts with the leaf hash of
+<code>leaf_node_tbs</code>, <code>leaf_index</code>, and <code>tree_size</code>. At each level, if the current
+level width is odd and the current index is <code>width - 1</code>, the current hash is
+promoted unchanged and no path entry is consumed. Otherwise, the next path entry
+is consumed as the sibling hash and the parent hash is computed with the sibling
+on the left when the current index is odd, and on the right when the current
+index is even. The index is then divided by two, rounding down, and the level
+width is divided by two, rounding up. A proof is valid only if <code>tree_size</code> is
+nonzero, <code>leaf_index &lt; tree_size</code>, all path entries are consumed, and the final
+computed hash is the Merkle root.<a href="#section-7.1-7" class="pilcrow">¶</a></p>
+<p id="section-7.1-8">The batch signature is computed over:<a href="#section-7.1-8" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.1-9">
+<pre>
+SignWithLabel(., "SlimKeyPackageBatchTBS", SlimKeyPackageBatchTBS)
+</pre><a href="#section-7.1-9" class="pilcrow">¶</a>
+</div>
+<p id="section-7.1-10">where <code>version</code> and <code>cipher_suite</code> are taken from <code>outer_key_package</code>,
+<code>signature_key_ref</code> is taken from <code>leaf_node_tbs</code>, <code>tree_size</code> is taken from
+<code>proof</code>, and <code>merkle_root</code> is the Merkle root computed as above.<a href="#section-7.1-10" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="outer-key-package-hash">
+<section id="section-7.2">
+        <h3 id="name-outerkeypackagehash-compone">
+<a href="#section-7.2" class="section-number selfRef">7.2. </a><a href="#name-outerkeypackagehash-compone" class="section-name selfRef">OuterKeyPackageHash component</a>
+        </h3>
+<div class="alignLeft art-text artwork" id="section-7.2-1">
+<pre>
+struct {
+  opaque outer_key_package_hash&lt;V&gt;;
+} OuterKeyPackageHash;
+</pre><a href="#section-7.2-1" class="pilcrow">¶</a>
+</div>
+<p id="section-7.2-2"><code>outer_key_package_hash</code> is the hash, under the SlimKeyPackage's ciphersuite
+hash function, of the TLS-encoded <code>outer_key_package</code> of the SlimKeyPackage
+in which the SlimLeafNode appears.<a href="#section-7.2-2" class="pilcrow">¶</a></p>
+<p id="section-7.2-3">An OuterKeyPackageHash is valid only if the SlimLeafNode's
+<code>leaf_node_source</code> is <code>key_package</code> and <code>outer_key_package_hash</code> equals the
+hash of the enclosing SlimKeyPackage's <code>outer_key_package</code>.<a href="#section-7.2-3" class="pilcrow">¶</a></p>
+<p id="section-7.2-4">The <code>app_data_dictionary</code> extension <span class="bcp14">MUST</span> contain exactly one
+OuterKeyPackageHash component under component identifier TBD. A missing,
+malformed, or duplicated OuterKeyPackageHash component makes the enclosing
+SlimKeyPackage invalid.<a href="#section-7.2-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="creation-and-processing">
+<section id="section-7.3">
+        <h3 id="name-creation-and-processing">
+<a href="#section-7.3" class="section-number selfRef">7.3. </a><a href="#name-creation-and-processing" class="section-name selfRef">Creation and Processing</a>
+        </h3>
+<p id="section-7.3-1">A sender constructs a SlimKeyPackage as follows:<a href="#section-7.3-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-7.3-2">
+<li id="section-7.3-2.1">
+            <p id="section-7.3-2.1.1">Construct an OuterSlimKeyPackage with the desired version, cipher_suite,
+HPKEPublicKeyRef for the init key, and extensions.<a href="#section-7.3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.3-2.2">
+            <p id="section-7.3-2.2.1">Construct a SlimLeafNodeTBS with <code>leaf_node_source = key_package</code>. Add an
+<code>app_data_dictionary</code> extension containing an OuterKeyPackageHash whose
+value is the hash of the OuterSlimKeyPackage from step 1.<a href="#section-7.3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.3-2.3">
+            <p id="section-7.3-2.3.1">Construct all other SlimLeafNodeTBS values in the batch in the same way.<a href="#section-7.3-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.3-2.4">
+            <p id="section-7.3-2.4.1">Build the KeyPackage batch Merkle tree over the SlimLeafNodeTBS values.<a href="#section-7.3-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.3-2.5">
+            <p id="section-7.3-2.5.1">Construct a SlimKeyPackageBatchTBS for the root, sign it with the signature
+private key corresponding to <code>signature_key_ref</code>, and compute the
+SignatureRef over the raw signature bytes.<a href="#section-7.3-2.5.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.3-2.6">
+            <p id="section-7.3-2.6.1">Emit each SlimKeyPackage with its leaf's inclusion proof and the common
+SignatureRef, optionally accompanied by a
+LargeObjectCarrier holding the referenced HPKEPublicKey and the large objects
+referenced by the SlimLeafNode and the batch signature bytes.<a href="#section-7.3-2.6.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-7.3-3">A recipient processes a SlimKeyPackage like a KeyPackage with the following
+exceptions:<a href="#section-7.3-3" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-7.3-4.1">
+            <p id="section-7.3-4.1.1">There is no outer signature to verify.<a href="#section-7.3-4.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.3-4.2">
+            <p id="section-7.3-4.2.1">There is no per-package LeafNode signature to verify.<a href="#section-7.3-4.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.3-4.3">
+            <p id="section-7.3-4.3.1">The SlimLeafNode <span class="bcp14">MUST</span> contain an <code>app_data_dictionary</code> extension with a valid
+OuterKeyPackageHash component.<a href="#section-7.3-4.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.3-4.4">
+            <p id="section-7.3-4.4.1">The recipient resolves the batch signature bytes using <code>signature_ref</code> from
+inside the <code>leaf_node</code>, computes SignatureRef over those bytes, and verifies
+that it equals <code>signature_ref</code>.<a href="#section-7.3-4.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.3-4.5">
+            <p id="section-7.3-4.5.1">The recipient verifies the Merkle inclusion proof, reconstructs the
+SlimKeyPackageBatchTBS, resolves the SignaturePublicKey corresponding to
+<code>signature_key_ref</code>, and verifies the raw batch signature bytes identified by
+<code>signature_ref</code> using VerifyWithLabel label "SlimKeyPackageBatchTBS".<a href="#section-7.3-4.5.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.3-4.6">
+            <p id="section-7.3-4.6.1">All large-object <code>*Ref</code> values are resolved per <a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-7.3-4.6.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+</section>
+</div>
+<div id="slim-welcome">
+<section id="section-8">
+      <h2 id="name-slimwelcome">
+<a href="#section-8" class="section-number selfRef">8. </a><a href="#name-slimwelcome" class="section-name selfRef">SlimWelcome</a>
+      </h2>
+<p id="section-8-1">SlimWelcome makes two changes relative to the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> Welcome:<a href="#section-8-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-8-2">
+<li id="section-8-2.1">
+          <p id="section-8-2.1.1">The per-recipient EncryptedGroupSecrets is replaced by a
+SlimEncryptedGroupSecrets (<a href="#slim-egs" class="auto internal xref">Section 8.2</a>), which permits the recipient to be
+identified either by SlimKeyPackageRef or by leaf index.<a href="#section-8-2.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-8-2.2">
+          <p id="section-8-2.2.1">The <code>encrypted_group_info</code> field is replaced by an
+<code>optional&lt;WelcomeGroupInfo&gt;</code> (<a href="#welcome-group-info" class="auto internal xref">Section 8.3</a>), where
+WelcomeGroupInfo is a tagged union over an encrypted form and a
+plaintext form.<a href="#section-8-2.2.1" class="pilcrow">¶</a></p>
+</li>
+      </ol>
+<p id="section-8-3">With the exception of changes described in this section, SlimWelcomes are
+processed just like regular Welcome messages.<a href="#section-8-3" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-8-4">
+<pre>
+struct {
+  CipherSuite                cipher_suite;
+  SlimEncryptedGroupSecrets  secrets&lt;V&gt;;
+  optional&lt;WelcomeGroupInfo&gt; group_info;
+} SlimWelcome;
+</pre><a href="#section-8-4" class="pilcrow">¶</a>
+</div>
+<div id="sender-and-ds-behavior">
+<section id="section-8.1">
+        <h3 id="name-sender-and-ds-behavior">
+<a href="#section-8.1" class="section-number selfRef">8.1. </a><a href="#name-sender-and-ds-behavior" class="section-name selfRef">Sender and DS Behavior</a>
+        </h3>
+<p id="section-8.1-1">The sender <span class="bcp14">MUST</span> construct <code>SlimWelcome.secrets</code> to contain one
+SlimEncryptedGroupSecrets for every recipient it intends to add, in
+the same order it would use under <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-8.1-1" class="pilcrow">¶</a></p>
+<p id="section-8.1-2">The DS <span class="bcp14">MAY</span> remove entries from <code>SlimWelcome.secrets</code> on a per-recipient basis,
+e.g., to deliver to each recipient only its own entry.<a href="#section-8.1-2" class="pilcrow">¶</a></p>
+<p id="section-8.1-3">If the sender omits the <code>group_info</code> field (presence octet 0), the DS <span class="bcp14">MUST</span>
+populate it with a plaintext WelcomeGroupInfo before delivering the SlimWelcome
+to a recipient (<a href="#welcome-group-info" class="auto internal xref">Section 8.3</a>). In this mode, the GroupInfo used by the
+sender to encrypt the SlimEncryptedGroupSecrets and the GroupInfo populated by
+the DS <span class="bcp14">MUST</span> be byte-for-byte identical SlimGroupInfo objects.<a href="#section-8.1-3" class="pilcrow">¶</a></p>
+<p id="section-8.1-4">A DS that supplies large objects alongside a SlimWelcome can distinguish
+between basic-processing delivery and update-capable delivery. Basic-processing
+delivery contains the large objects needed for the recipient to validate the
+SlimWelcome, derive the epoch secrets, receive subsequent MLS messages, and send
+application messages. It can omit HPKE public keys that are only needed to
+construct a future Commit with an update path. Update-capable delivery
+additionally includes enough HPKE public keys for the recipient to construct an
+update path without a later fetch, such as the HPKE public keys for the
+recipient's copath resolution in the delivered tree. A recipient that has only
+basic-processing state <span class="bcp14">MUST</span> resolve the missing HPKEPublicKeyRefs before
+sending a Commit with an update path.<a href="#section-8.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="slim-egs">
+<section id="section-8.2">
+        <h3 id="name-slimencryptedgroupsecrets">
+<a href="#section-8.2" class="section-number selfRef">8.2. </a><a href="#name-slimencryptedgroupsecrets" class="section-name selfRef">SlimEncryptedGroupSecrets</a>
+        </h3>
+<p id="section-8.2-1">SlimEncryptedGroupSecrets extends the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>
+EncryptedGroupSecrets to allow either of two recipient identifiers:<a href="#section-8.2-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-8.2-2">
+<pre>
+enum {
+  reserved(0),
+  slim_key_package_ref(1),
+  leaf_node_index(2),
+  (255)
+} RecipientIdentifierType;
+
+struct {
+  RecipientIdentifierType recipient_type;
+  select (SlimEncryptedGroupSecrets.recipient_type) {
+    case slim_key_package_ref:
+      SlimKeyPackageRef new_member;
+    case leaf_node_index:
+      uint32 leaf_node_index;
+  };
+  HPKECiphertext encrypted_group_secrets;
+} SlimEncryptedGroupSecrets;
+</pre><a href="#section-8.2-2" class="pilcrow">¶</a>
+</div>
+<p id="section-8.2-3">A recipient locates the entry intended for it by matching either its own
+SlimKeyPackageRef or its leaf in the group's ratchet tree via the leaf index.<a href="#section-8.2-3" class="pilcrow">¶</a></p>
+<p id="section-8.2-4">The <code>leaf_node_index</code> recipient type <span class="bcp14">MUST</span> be used only when the
+SlimEncryptedGroupSecrets is encrypted using a plaintext SlimGroupInfo as
+context and the delivered SlimWelcome carries
+<code>WelcomeGroupInfo.info_type = plaintext</code>. Otherwise, the sender <span class="bcp14">MUST</span> use
+<code>slim_key_package_ref</code>.<a href="#section-8.2-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="welcome-group-info">
+<section id="section-8.3">
+        <h3 id="name-welcomegroupinfo">
+<a href="#section-8.3" class="section-number selfRef">8.3. </a><a href="#name-welcomegroupinfo" class="section-name selfRef">WelcomeGroupInfo</a>
+        </h3>
+<p id="section-8.3-1">WelcomeGroupInfo is a tagged union over two presentations of the
+SlimGroupInfo: an encrypted form or a plaintext form:<a href="#section-8.3-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-8.3-2">
+<pre>
+enum {
+  reserved(0),
+  encrypted(1),
+  plaintext(2),
+  (255)
+} WelcomeGroupInfoType;
+
+struct {
+  WelcomeGroupInfoType info_type;
+  select (WelcomeGroupInfo.info_type) {
+    case encrypted:
+      opaque encrypted_group_info&lt;V&gt;;
+    case plaintext:
+      SlimGroupInfo group_info;
+  };
+} WelcomeGroupInfo;
+</pre><a href="#section-8.3-2" class="pilcrow">¶</a>
+</div>
+<p id="section-8.3-3">The <code>encrypted</code> variant is encrypted under a key derived from the joiner secret,
+as in the <code>encrypted_group_info</code> field of the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> Welcome. Its
+plaintext is a SlimGroupInfo whose SignatureOrRef uses
+<code>signature_type = signature</code>. A sender <span class="bcp14">MUST NOT</span> encrypt a SlimGroupInfo with
+<code>signature_type = signature_ref</code> into this field.<a href="#section-8.3-3" class="pilcrow">¶</a></p>
+<p id="section-8.3-4">The <code>plaintext</code> variant carries a SlimGroupInfo in the clear. Its
+SignatureOrRef <span class="bcp14">MUST</span> use <code>signature_type = signature_ref</code>, which is resolved per
+<a href="#large-object-retrieval" class="auto internal xref">Section 6</a> before signature verification.<a href="#section-8.3-4" class="pilcrow">¶</a></p>
+<p id="section-8.3-5">The HPKE context used to encrypt and decrypt
+<code>SlimEncryptedGroupSecrets.encrypted_group_secrets</code> depends on the GroupInfo
+presentation. For the <code>encrypted</code> variant, the context is the
+<code>encrypted_group_info</code> value, as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>. For the <code>plaintext</code> variant,
+and for SlimWelcomes sent with <code>group_info</code> absent, the context is the
+TLS-encoded SlimGroupInfo.<a href="#section-8.3-5" class="pilcrow">¶</a></p>
+<p id="section-8.3-6">The outer <code>optional&lt;WelcomeGroupInfo&gt;</code> in the SlimWelcome additionally allows
+the sender to omit the GroupInfo. This mode is intended for server-assisted
+deployments where the sender and recipient can obtain the exact GroupInfo by
+some channel other than the SlimWelcome.<a href="#section-8.3-6" class="pilcrow">¶</a></p>
+<p id="section-8.3-7">A recipient that receives a SlimWelcome whose <code>group_info</code> field is
+absent <span class="bcp14">MUST</span> consider the SlimWelcome invalid.<a href="#section-8.3-7" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="slim-commit">
+<section id="section-9">
+      <h2 id="name-slimcommit">
+<a href="#section-9" class="section-number selfRef">9. </a><a href="#name-slimcommit" class="section-name selfRef">SlimCommit</a>
+      </h2>
+<p id="section-9-1">SlimCommit enables split delivery for SlimMLS Commits. The DS can deliver to
+each recipient only the HPKECiphertextRefs and HPKECiphertexts intended for
+that recipient. It also saves one signature when a commit contains a path but
+does not rotate the sender's signature key.<a href="#section-9-1" class="pilcrow">¶</a></p>
+<p id="section-9-2">A SlimMLS-aware sender <span class="bcp14">MUST</span> use a SlimCommit in place of an MLS Commit in a
+group with the <code>slim_mls</code> extension.<a href="#section-9-2" class="pilcrow">¶</a></p>
+<p id="section-9-3">A SlimCommit is carried in either a SlimPublicMessage or SlimPrivateMessage
+(<a href="#slim-framing" class="auto internal xref">Section 9.2</a>). These message structures allow the unsigned SlimUpdatePath
+to be carried alongside the framed SlimCommit without being included in the
+transcript hash, the membership tag, or the framing signature.<a href="#section-9-3" class="pilcrow">¶</a></p>
+<p id="section-9-4">A SlimCommit carries the normal <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> confirmation tag in its
+SlimFramedContentAuthData. When the single-signature construction of
+<a href="#single-sig-commits" class="auto internal xref">Section 9.4</a> applies, the authentication data contains the
+confirmation tag but omits the framing signature field. Otherwise, the
+authentication data contains the confirmation tag and a SignatureOrRef whose
+variant is determined by the message envelope.<a href="#section-9-4" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-9-5">
+<pre>
+struct {
+  ProposalOrRef          proposals&lt;V&gt;;
+  optional&lt;SlimLeafNode&gt; leaf_node;
+} SlimCommit;
+</pre><a href="#section-9-5" class="pilcrow">¶</a>
+</div>
+<p id="section-9-6"><code>leaf_node</code>, when present, is the committer's new SlimLeafNode.<a href="#section-9-6" class="pilcrow">¶</a></p>
+<div id="slimupdatepath">
+<section id="section-9.1">
+        <h3 id="name-slimupdatepath">
+<a href="#section-9.1" class="section-number selfRef">9.1. </a><a href="#name-slimupdatepath" class="section-name selfRef">SlimUpdatePath</a>
+        </h3>
+<p id="section-9.1-1">The path is conveyed separately from the framed SlimCommit:<a href="#section-9.1-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-9.1-2">
+<pre>
+struct {
+  HPKEPublicKeyRef  encryption_key_ref;
+  HPKECiphertextRef encrypted_path_secret_refs&lt;V&gt;;
+} SlimUpdatePathNode;
+
+struct {
+  SlimUpdatePathNode nodes&lt;V&gt;;
+} SlimUpdatePath;
+</pre><a href="#section-9.1-2" class="pilcrow">¶</a>
+</div>
+<p id="section-9.1-3">Each SlimUpdatePathNode carries an HPKEPublicKeyRef for the new ParentNode
+public key and a vector of HPKECiphertextRefs. In the sender-to-DS
+SlimUpdatePath, the <code>encrypted_path_secret_refs</code> vector has the same order and
+cardinality as the <code>encrypted_path_secret</code> vector in the corresponding
+<span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> UpdatePathNode. In a DS-to-recipient SlimUpdatePath, the DS <span class="bcp14">MAY</span>
+reduce each <code>encrypted_path_secret_refs</code> vector to the subset the recipient
+needs. The reduced path <span class="bcp14">MUST</span> contain enough HPKECiphertextRefs for the recipient
+to decrypt one path secret and derive the remaining path secrets it needs to
+process the Commit. The corresponding HPKECiphertexts, and any HPKEPublicKeys
+that are functionally needed, are resolved per <a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-9.1-3" class="pilcrow">¶</a></p>
+<p id="section-9.1-4">The SlimUpdatePath is not signed. Its HPKEPublicKeyRefs are authenticated by
+the parent hash in the committer's SlimLeafNode, as in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.9" class="relref">Section 7.9</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, with HPKEPublicKeyRef replacing HPKEPublicKey in the parent-hash
+computation. Its HPKECiphertextRefs are unauthenticated delivery objects: a
+recipient validates them by decrypting the referenced HPKECiphertext, deriving
+the path public keys, checking that the derived public keys hash to the
+authenticated HPKEPublicKeyRefs, and verifying the Commit confirmation tag.<a href="#section-9.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="slim-framing">
+<section id="section-9.2">
+        <h3 id="name-slim-framing">
+<a href="#section-9.2" class="section-number selfRef">9.2. </a><a href="#name-slim-framing" class="section-name selfRef">Slim Framing</a>
+        </h3>
+<p id="section-9.2-1">In a SlimMLS group, public and private message framing uses dedicated SlimMLS
+structures. They are the same as <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> PublicMessage and PrivateMessage,
+except that:<a href="#section-9.2-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-9.2-2.1">
+            <p id="section-9.2-2.1.1">the framed content carries a SlimCommit or SlimProposal where <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>
+carries a Commit or Proposal,<a href="#section-9.2-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-9.2-2.2">
+            <p id="section-9.2-2.2.1">the authentication data is a SlimFramedContentAuthData, and<a href="#section-9.2-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-9.2-2.3">
+            <p id="section-9.2-2.3.1">when the content is a SlimCommit, the unsigned SlimUpdatePath is carried
+alongside the framed content, outside the authenticated content.<a href="#section-9.2-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-9.2-3">SlimProposal is the slim variant of the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> Proposal struct obtained
+by the mechanical-substitution rule of <a href="#slim-structs" class="auto internal xref">Section 5</a>: an Add proposal
+carries a SlimKeyPackage and an Update proposal carries a SlimLeafNode. Other
+proposal variants are unchanged.<a href="#section-9.2-3" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-9.2-4">
+<pre>
+struct {
+  opaque group_id&lt;V&gt;;
+  uint64 epoch;
+  Sender sender;
+  opaque authenticated_data&lt;V&gt;;
+
+  ContentType content_type;
+  select (SlimFramedContent.content_type) {
+    case application:
+      opaque application_data&lt;V&gt;;
+    case proposal:
+      SlimProposal proposal;
+    case commit:
+      SlimCommit commit;
+  };
+} SlimFramedContent;
+
+struct {
+  /*
+    SignWithLabel(., "FramedContentTBS", SlimFramedContentTBS)
+  */
+  optional&lt;SignatureOrRef&gt; signature;
+
+  select (SlimFramedContent.content_type) {
+    case commit:
+      /*
+        MAC(confirmation_key,
+            GroupContext.confirmed_transcript_hash)
+      */
+      MAC confirmation_tag;
+    case application:
+    case proposal:
+      struct{};
+  };
+} SlimFramedContentAuthData;
+
+struct {
+  ProtocolVersion    version = mls10;
+  WireFormat         wire_format;
+  SlimFramedContent  content;
+  select (SlimFramedContentTBS.content.sender.sender_type) {
+    case member:
+    case new_member_commit:
+      GroupContext context;
+    case external:
+    case new_member_proposal:
+      struct{};
+  };
+} SlimFramedContentTBS;
+
+struct {
+  WireFormat         wire_format;
+  SlimFramedContent  content;
+  SlimFramedContentAuthData auth;
+} SlimAuthenticatedContent;
+
+struct {
+  SlimFramedContent         content;
+  SlimFramedContentAuthData auth;
+  select (SlimPublicMessage.content.sender.sender_type) {
+    case member:
+      MAC membership_tag;
+    case external:
+    case new_member_commit:
+    case new_member_proposal:
+      struct{};
+  };
+  select (SlimPublicMessage.content.content_type) {
+    case commit:
+      optional&lt;SlimUpdatePath&gt; path;
+    case application:
+    case proposal:
+      struct{};
+  };
+} SlimPublicMessage;
+
+struct {
+  select (SlimPrivateMessage.content_type) {
+    case application:
+      opaque application_data&lt;V&gt;;
+    case proposal:
+      SlimProposal proposal;
+    case commit:
+      SlimCommit commit;
+  };
+  SlimFramedContentAuthData auth;
+  opaque                    padding[length_of_padding];
+} SlimPrivateMessageContent;
+
+struct {
+  opaque group_id&lt;V&gt;;
+  uint64 epoch;
+  ContentType content_type;
+  opaque authenticated_data&lt;V&gt;;
+  opaque encrypted_sender_data&lt;V&gt;;
+  opaque ciphertext&lt;V&gt;;
+  select (SlimPrivateMessage.content_type) {
+    case commit:
+      optional&lt;SlimUpdatePath&gt; path;
+    case application:
+    case proposal:
+      struct{};
+  };
+} SlimPrivateMessage;
+</pre><a href="#section-9.2-4" class="pilcrow">¶</a>
+</div>
+<p id="section-9.2-5">The optional <code>signature</code> field in SlimFramedContentAuthData <span class="bcp14">MUST</span> be
+present whenever <code>content_type</code> is <code>application</code> or <code>proposal</code>. For
+<code>content_type = commit</code>, <code>signature</code> <span class="bcp14">MUST</span> be absent if and only if the
+single-signature construction of <a href="#single-sig-commits" class="auto internal xref">Section 9.4</a> applies.<a href="#section-9.2-5" class="pilcrow">¶</a></p>
+<p id="section-9.2-6">When present in a SlimPublicMessage, <code>signature</code> <span class="bcp14">MUST</span> use
+<code>signature_type = signature_ref</code>. When present in a SlimPrivateMessage,
+<code>signature</code> <span class="bcp14">MUST</span> use <code>signature_type = signature</code>. This ensures that a
+SlimPrivateMessage framing signature is encrypted as part of
+SlimPrivateMessageContent.<a href="#section-9.2-6" class="pilcrow">¶</a></p>
+<p id="section-9.2-7">When a framing signature is present, it is computed and verified as in
+<span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, except that the to-be-signed content is SlimFramedContentTBS and
+the WireFormat is either <code>mls_slim_public_message</code> or
+<code>mls_slim_private_message</code>.<a href="#section-9.2-7" class="pilcrow">¶</a></p>
+<p id="section-9.2-8">For SlimPrivateMessage, the <code>ciphertext</code> field encrypts a
+SlimPrivateMessageContent. The sender data encryption, content encryption,
+padding, and decryption rules are otherwise the same as for PrivateMessage in
+<span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-9.2-8" class="pilcrow">¶</a></p>
+<p id="section-9.2-9">After decrypting a SlimPrivateMessage, the recipient reconstructs the
+SlimFramedContent from the outer <code>group_id</code>, <code>epoch</code>, <code>content_type</code>, and
+<code>authenticated_data</code> fields, the decrypted sender, and the decrypted content.
+The reconstructed SlimFramedContent is used with the decrypted
+SlimFramedContentAuthData for signature verification and, for commits, for
+OuterUpdateHash verification, transcript hash computation, and confirmation tag
+verification.<a href="#section-9.2-9" class="pilcrow">¶</a></p>
+<p id="section-9.2-10">For SlimPublicMessage, the membership tag is computed over the following
+structure:<a href="#section-9.2-10" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-9.2-11">
+<pre>
+struct {
+  SlimFramedContentTBS       content_tbs;
+  SlimFramedContentAuthData  auth;
+} SlimAuthenticatedContentTBM;
+</pre><a href="#section-9.2-11" class="pilcrow">¶</a>
+</div>
+<p id="section-9.2-12">For commits, the input to the confirmed transcript hash is:<a href="#section-9.2-12" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-9.2-13">
+<pre>
+struct {
+  WireFormat        wire_format;
+  SlimFramedContent content;
+} SlimConfirmedTranscriptHashInput;
+</pre><a href="#section-9.2-13" class="pilcrow">¶</a>
+</div>
+<p id="section-9.2-14">The SlimUpdatePath is not part of SlimFramedContent,
+SlimAuthenticatedContentTBM, or SlimConfirmedTranscriptHashInput. It is
+therefore not authenticated by the membership tag, the framing signature, or
+the transcript hash. In a SlimPrivateMessage carrying a commit, the path is
+carried outside the ciphertext so the DS can reduce it per recipient.<a href="#section-9.2-14" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="slimmessage">
+<section id="section-9.3">
+        <h3 id="name-slimmessage">
+<a href="#section-9.3" class="section-number selfRef">9.3. </a><a href="#name-slimmessage" class="section-name selfRef">SlimMessage</a>
+        </h3>
+<p id="section-9.3-1">SlimMessage is the generic term for the two concrete wire presentations,
+SlimPublicMessage and SlimPrivateMessage. Both presentations are used for
+sender-to-DS transport and for DS-to-recipient delivery. For commits, the
+difference between the two is the cardinality of the HPKECiphertextRef vectors
+in <code>path</code>.<a href="#section-9.3-1" class="pilcrow">¶</a></p>
+<p id="section-9.3-2">In a SlimMLS group, the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> PublicMessage and PrivateMessage wire
+formats <span class="bcp14">MUST NOT</span> be used. A SlimMLS-aware sender <span class="bcp14">MUST</span> emit a SlimPublicMessage
+or SlimPrivateMessage in their place.<a href="#section-9.3-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="single-sig-commits">
+<section id="section-9.4">
+        <h3 id="name-single-signature-constructi">
+<a href="#section-9.4" class="section-number selfRef">9.4. </a><a href="#name-single-signature-constructi" class="section-name selfRef">Single Signature Construction</a>
+        </h3>
+<p id="section-9.4-1">When a SlimCommit is sent by a member, contains a SlimLeafNode, and the
+sender's signature key is unchanged, the framing signature is omitted, and
+authenticity is provided by the SlimLeafNode's own signature in combination
+with an OuterUpdateHash component placed in the SlimLeafNode's
+<code>app_data_dictionary</code> extension. The confirmation tag is still present and
+processed as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-9.4-1" class="pilcrow">¶</a></p>
+<p id="section-9.4-2">The OuterUpdateHash binds the framed SlimCommit (excluding the SlimLeafNode
+itself, to avoid a circular dependency) and the GroupContext to the
+SlimLeafNode:<a href="#section-9.4-2" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-9.4-3">
+<pre>
+struct {
+  opaque outer_update_hash&lt;V&gt;;
+} OuterUpdateHash;
+
+struct {
+  opaque       group_id&lt;V&gt;;
+  uint64       epoch;
+  Sender       sender;
+  opaque       authenticated_data&lt;V&gt;;
+  ContentType  content_type;
+  select (OuterFramedContent.content_type) {
+    case commit:
+      ProposalOrRef proposals&lt;V&gt;;
+  };
+} OuterFramedContent;
+
+struct {
+  ProtocolVersion    version = mls10;
+  WireFormat         wire_format;
+  OuterFramedContent content;
+  GroupContext       context;
+} SlimFramedContentTBH;
+</pre><a href="#section-9.4-3" class="pilcrow">¶</a>
+</div>
+<p id="section-9.4-4"><code>outer_update_hash</code> is the hash, under the group's ciphersuite hash function,
+of the TLS-encoded SlimFramedContentTBH. Fields of OuterFramedContent are
+populated from the SlimCommit being framed. The SlimLeafNode is omitted to
+prevent the circular dependency that would arise from including the very
+component being computed.<a href="#section-9.4-4" class="pilcrow">¶</a></p>
+<p id="section-9.4-5">The <code>app_data_dictionary</code> extension <span class="bcp14">MUST</span> contain exactly one OuterUpdateHash
+component under component identifier TBD. A missing, malformed, or duplicated
+OuterUpdateHash component makes the single-signature construction invalid.<a href="#section-9.4-5" class="pilcrow">¶</a></p>
+<p id="section-9.4-6">The OuterUpdateHash authenticates the non-path commit contents that the omitted
+framing signature would otherwise cover. The path's HPKEPublicKeyRefs are
+authenticated separately by parent hash validation. The path's
+HPKECiphertextRefs are not authenticated by the signature and do not contribute
+to the group state. Tampering with them can only cause decryption, derived-key,
+or confirmation-tag validation to fail.<a href="#section-9.4-6" class="pilcrow">¶</a></p>
+<p id="section-9.4-7">When the construction applies, the SignaturePublicKeyRef in the SlimLeafNode
+<span class="bcp14">MUST</span> equal the sender's current SignaturePublicKeyRef. A sender that wishes
+to change its signature key <span class="bcp14">MUST</span> instead emit a SlimCommit whose authentication
+data carries a framing signature, so that the new key is bound by a signature
+under the old one.<a href="#section-9.4-7" class="pilcrow">¶</a></p>
+<p id="section-9.4-8">A SlimCommit without a SlimLeafNode (e.g., a commit containing only Add or
+Remove proposals) does not use this construction. Its authentication data
+carries a framing signature.<a href="#section-9.4-8" class="pilcrow">¶</a></p>
+<p id="section-9.4-9">A SlimCommit whose sender type is not <code>member</code> does not use this construction.
+Its authentication data carries a framing signature.<a href="#section-9.4-9" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="sender-ds-and-recipient-behavior">
+<section id="section-9.5">
+        <h3 id="name-sender-ds-and-recipient-beh">
+<a href="#section-9.5" class="section-number selfRef">9.5. </a><a href="#name-sender-ds-and-recipient-beh" class="section-name selfRef">Sender, DS, and Recipient Behavior</a>
+        </h3>
+<p id="section-9.5-1">A committer constructs a SlimMessage carrying a SlimCommit as follows:<a href="#section-9.5-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-9.5-2">
+<li id="section-9.5-2.1">
+            <p id="section-9.5-2.1.1">Perform the steps of an <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> commit, deriving the path's
+HPKEPublicKeys, HPKECiphertexts, parent hashes, and the new epoch's key
+schedule. Parent hashes are computed over the slim parent-hash inputs, with
+HPKEPublicKeyRef replacing HPKEPublicKey.<a href="#section-9.5-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.5-2.2">
+            <p id="section-9.5-2.2.1">Build a SlimCommit containing the committed proposals and, if the commit
+contains a path, the committer's new SlimLeafNode. The SlimLeafNode's
+parent hash <span class="bcp14">MUST</span> authenticate the HPKEPublicKeyRefs in the SlimUpdatePath.<a href="#section-9.5-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.5-2.3">
+            <p id="section-9.5-2.3.1">Compute the confirmation tag for the new epoch as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-9.5-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.5-2.4">
+            <p id="section-9.5-2.4.1">If the single-signature construction applies, include a valid OuterUpdateHash
+in the SlimLeafNode and leave the optional <code>signature</code> field absent. If the
+construction does not apply, include the normal framing signature in
+SlimFramedContentAuthData, using <code>signature_type = signature_ref</code> for
+SlimPublicMessage and <code>signature_type = signature</code> for SlimPrivateMessage.<a href="#section-9.5-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.5-2.5">
+            <p id="section-9.5-2.5.1">Build a SlimUpdatePath whose SlimUpdatePathNodes carry the HPKEPublicKeyRefs
+and HPKECiphertextRefs of the path, and emit a SlimPublicMessage or
+SlimPrivateMessage, optionally accompanied by a LargeObjectCarrier holding
+the corresponding HPKEPublicKeys, HPKECiphertexts, and any public-message
+framing signature referenced by the SignatureOrRef.<a href="#section-9.5-2.5.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-9.5-3">The DS, knowing the ratchet tree before and after the commit, produces a
+per-recipient SlimMessage by reducing each SlimUpdatePathNode's
+HPKECiphertextRef vector to the subset needed by that recipient. The DS <span class="bcp14">MUST</span>
+retain the HPKEPublicKeyRef in every SlimUpdatePathNode, and <span class="bcp14">MUST</span> retain enough
+HPKECiphertextRefs for the recipient to decrypt one path secret and derive the
+remaining path secrets it needs to process the Commit. If a LargeObjectCarrier
+is present, the DS reduces it accordingly, retaining only any HPKEPublicKeys the
+recipient must receive and the HPKECiphertexts corresponding to the retained
+HPKECiphertextRefs. If the commit removes the recipient, <code>path</code> is omitted.<a href="#section-9.5-3" class="pilcrow">¶</a></p>
+<p id="section-9.5-4">For basic-processing delivery of a Commit with an update path, a recipient needs
+enough ciphertext material to derive the epoch secrets and verify the Commit, but
+does not necessarily need every HPKE public key referenced by the path. Such a
+recipient can process the Commit, receive subsequent MLS messages, and send
+application messages, but might not be able to construct its own Commit with an
+update path until it resolves additional HPKEPublicKeyRefs. To make the
+recipient immediately update-capable, the DS <span class="bcp14">MAY</span> include any updated HPKE
+public keys in the recipient's copath that the recipient cannot derive from its
+retained path secret. In a full tree with no blank nodes, this is one HPKE
+public key for each non-committing recipient.<a href="#section-9.5-4" class="pilcrow">¶</a></p>
+<p id="section-9.5-5">A recipient processes a SlimMessage carrying a SlimCommit by:<a href="#section-9.5-5" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-9.5-6">
+<li id="section-9.5-6.1">
+            <p id="section-9.5-6.1.1">Resolving the HPKECiphertextRefs required for the recipient and any
+HPKEPublicKeyRefs that are functionally needed, per
+<a href="#large-object-retrieval" class="auto internal xref">Section 6</a>. For SlimPublicMessage, this also includes any
+SignatureRef in the SlimFramedContentAuthData SignatureOrRef. For
+SlimPrivateMessage, the recipient decrypts SlimPrivateMessageContent and
+uses the inline SignatureOrRef value when one is present.<a href="#section-9.5-6.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.5-6.2">
+            <p id="section-9.5-6.2.1">If the authentication data contains a framing signature, verifying it per
+<span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> using SlimFramedContentTBS. If the SignatureOrRef uses
+<code>signature_type = signature_ref</code>, the recipient first resolves the referenced
+signature. If it uses <code>signature_type = signature</code>, the recipient uses the
+inline signature. If the framing signature is absent, verifying
+the SlimLeafNode signature and OuterUpdateHash per <a href="#single-sig-commits" class="auto internal xref">Section 9.4</a>.<a href="#section-9.5-6.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.5-6.3">
+            <p id="section-9.5-6.3.1">Decrypting the resolved HPKECiphertext, deriving the path public keys, and
+verifying that the derived public keys hash to the authenticated
+HPKEPublicKeyRefs.<a href="#section-9.5-6.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.5-6.4">
+            <p id="section-9.5-6.4.1">Applying the path update and verifying parent hashes over the slim encodings
+per <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.9.2" class="relref">Section 7.9.2</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-9.5-6.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.5-6.5">
+            <p id="section-9.5-6.5.1">Processing the commit per <span><a href="https://rfc-editor.org/rfc/rfc9420#section-12.4" class="relref">Section 12.4</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, deriving the new
+epoch, and verifying the confirmation tag. If confirmation tag validation
+fails, the recipient <span class="bcp14">MUST</span> reject the commit.<a href="#section-9.5-6.5.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-9.5-7">The input to the confirmed transcript hash is
+SlimConfirmedTranscriptHashInput (<a href="#slim-framing" class="auto internal xref">Section 9.2</a>). The interim transcript
+hash is computed from the confirmed transcript hash and the confirmation tag
+as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-9.5-7" class="pilcrow">¶</a></p>
+<p id="section-9.5-8">DSs that do not maintain the ratchet tree cannot perform the per-recipient
+reduction described above. Strategies for such deployments are out of scope.<a href="#section-9.5-8" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="optimizing-payload-sizes">
+<section id="section-10">
+      <h2 id="name-optimizing-payload-sizes">
+<a href="#section-10" class="section-number selfRef">10. </a><a href="#name-optimizing-payload-sizes" class="section-name selfRef">Optimizing Payload Sizes</a>
+      </h2>
+<p id="section-10-1">The separation of large objects and their references in structs that are sent
+over the wire or stored locally allows a few performance optimizations. They are
+up to the application to implement.<a href="#section-10-1" class="pilcrow">¶</a></p>
+<div id="storing-partial-trees">
+<section id="section-10.1">
+        <h3 id="name-storing-partial-trees">
+<a href="#section-10.1" class="section-number selfRef">10.1. </a><a href="#name-storing-partial-trees" class="section-name selfRef">Storing Partial Trees</a>
+        </h3>
+<p id="section-10.1-1">SlimMLS clients need the slim public tree for MLS tree computations, but they
+do not need to fetch every large object referenced by that tree. Tree hashes,
+parent hashes, and GroupInfo validation are computed over SlimLeafNode and
+SlimParentNode encodings, so the references to public keys and credentials are
+the values committed to by those computations. A client can therefore defer
+fetching large objects that are not functionally needed, such as HPKE public
+keys outside the client's copath. This is especially relevant when joining a
+group, where the DS can selectively include the public keys and credentials the
+joiner needs immediately.<a href="#section-10.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="omitting-cached-large-objects">
+<section id="section-10.2">
+        <h3 id="name-omitting-cached-large-objec">
+<a href="#section-10.2" class="section-number selfRef">10.2. </a><a href="#name-omitting-cached-large-objec" class="section-name selfRef">Omitting Cached Large Objects</a>
+        </h3>
+<p id="section-10.2-1">If the DS keeps track of the group's public state, clients that send a commit
+with an update path only need to proactively provide the signature public key and
+credential if either of them change as part of the commit.<a href="#section-10.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="cross-group-credential-caching">
+<section id="section-10.3">
+        <h3 id="name-cross-group-credential-cach">
+<a href="#section-10.3" class="section-number selfRef">10.3. </a><a href="#name-cross-group-credential-cach" class="section-name selfRef">Cross-group Credential Caching</a>
+        </h3>
+<p id="section-10.3-1">If clients use the same credential across multiple groups, other clients can
+cache them and pull new credentials selectively when they encounter credential
+references they can't resolve. Whether this is a performance increase depends on
+the context of the application.<a href="#section-10.3-1" class="pilcrow">¶</a></p>
+<p id="section-10.3-2">The DS can similarly deduplicate stored credentials.<a href="#section-10.3-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="delayed-fetching-of-large-objects">
+<section id="section-10.4">
+        <h3 id="name-delayed-fetching-of-large-o">
+<a href="#section-10.4" class="section-number selfRef">10.4. </a><a href="#name-delayed-fetching-of-large-o" class="section-name selfRef">Delayed Fetching of Large Objects</a>
+        </h3>
+<p id="section-10.4-1">A client that has been offline for some time can fetch and process slim messages
+first. It can wait to fetch large objects that are not relevant for processing
+(such as HPKE public keys) until it has arrived at the current group state. The
+client thus avoids downloading stale, intermediate large objects.<a href="#section-10.4-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="wire-formats">
+<section id="section-11">
+      <h2 id="name-wire-formats">
+<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-wire-formats" class="section-name selfRef">Wire Formats</a>
+      </h2>
+<p id="section-11-1">SlimMLS defines new WireFormat values for the SlimMLS variants of each
+<span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> wire format. The MLSMessage struct defined in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> is
+correspondingly extended with the following cases:<a href="#section-11-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-11-2">
+<pre>
+struct {
+  ProtocolVersion version = mls10;
+  WireFormat wire_format;
+  select (MLSMessage.wire_format) {
+    case mls_slim_welcome:          SlimWelcome        slim_welcome;
+    case mls_slim_key_package:      SlimKeyPackage     slim_key_package;
+    case mls_slim_group_info:       SlimGroupInfo      slim_group_info;
+    case mls_slim_public_message:   SlimPublicMessage  slim_public_message;
+    case mls_slim_private_message:  SlimPrivateMessage slim_private_message;
+  };
+} MLSMessage;
+</pre><a href="#section-11-2" class="pilcrow">¶</a>
+</div>
+<p id="section-11-3">In a SlimMLS group, the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> wire formats <code>mls_public_message</code>,
+<code>mls_private_message</code>, <code>mls_welcome</code>, <code>mls_group_info</code>, and <code>mls_key_package</code>
+        <span class="bcp14">MUST NOT</span> be used. A SlimMLS-aware sender <span class="bcp14">MUST</span> emit the corresponding SlimMLS
+wire format instead: <code>mls_slim_public_message</code> or <code>mls_slim_private_message</code>
+for member-originated messages, <code>mls_slim_welcome</code> for Welcomes,
+<code>mls_slim_group_info</code> for standalone GroupInfos, and <code>mls_slim_key_package</code>
+for KeyPackages. A recipient <span class="bcp14">MUST</span> reject any RFC 9420 wire format received in
+the context of a group that carries the <code>slim_mls</code> extension.<a href="#section-11-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="slim-mls-extension">
+<section id="section-12">
+      <h2 id="name-the-slim_mls-extension">
+<a href="#section-12" class="section-number selfRef">12. </a><a href="#name-the-slim_mls-extension" class="section-name selfRef">The slim_mls Extension</a>
+      </h2>
+<p id="section-12-1">SlimMLS is signaled by a GroupContext extension named <code>slim_mls</code>. Presence
+of this extension in the GroupContext means that all wire formats within the
+group use SlimMLS replacements (<a href="#wire-formats" class="auto internal xref">Section 11</a>).<a href="#section-12-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="slim-ratchet-tree-extension">
+<section id="section-13">
+      <h2 id="name-the-slim_ratchet_tree-exten">
+<a href="#section-13" class="section-number selfRef">13. </a><a href="#name-the-slim_ratchet_tree-exten" class="section-name selfRef">The slim_ratchet_tree Extension</a>
+      </h2>
+<p id="section-13-1">The <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> <code>ratchet_tree</code> GroupInfo extension carries LeafNode and
+ParentNode objects. SlimMLS defines a <code>slim_ratchet_tree</code> GroupInfo extension
+that conveys the same tree using SlimLeafNode and SlimParentNode objects:<a href="#section-13-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-13-2">
+<pre>
+struct {
+    NodeType node_type;
+    select (SlimNode.node_type) {
+        case leaf:   SlimLeafNode leaf_node;
+        case parent: SlimParentNode parent_node;
+    };
+} SlimNode;
+
+optional&lt;SlimNode&gt; slim_ratchet_tree&lt;V&gt;;
+</pre><a href="#section-13-2" class="pilcrow">¶</a>
+</div>
+<p id="section-13-3">The ordering, truncation, and validation rules are the same as for the
+<code>ratchet_tree</code> extension in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-12.4.3.3" class="relref">Section 12.4.3.3</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, except that tree
+hash and parent hash computations use the slim node encodings. The large
+objects referenced by the slim nodes are resolved per
+<a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-13-3" class="pilcrow">¶</a></p>
+<p id="section-13-4">In a SlimMLS group, the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> <code>ratchet_tree</code> extension <span class="bcp14">MUST NOT</span> be used.
+A sender that would include <code>ratchet_tree</code> <span class="bcp14">MUST</span> instead include the
+<code>slim_ratchet_tree</code> extension.<a href="#section-13-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="slim-external-pub-extension">
+<section id="section-14">
+      <h2 id="name-the-slim_external_pub-exten">
+<a href="#section-14" class="section-number selfRef">14. </a><a href="#name-the-slim_external_pub-exten" class="section-name selfRef">The slim_external_pub Extension</a>
+      </h2>
+<p id="section-14-1">The <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> <code>external_pub</code> GroupInfo extension carries an
+HPKEPublicKey that external joiners use when issuing an External
+Init proposal (<span><a href="https://rfc-editor.org/rfc/rfc9420#section-12.4.3.2" class="relref">Section 12.4.3.2</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>). SlimMLS defines a
+<code>slim_external_pub</code> GroupInfo extension that conveys the same
+information using an HPKEPublicKeyRef:<a href="#section-14-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-14-2">
+<pre>
+struct {
+  HPKEPublicKeyRef external_pub_ref;
+} SlimExternalPub;
+</pre><a href="#section-14-2" class="pilcrow">¶</a>
+</div>
+<p id="section-14-3">In a SlimMLS group, the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> <code>external_pub</code> extension <span class="bcp14">MUST NOT</span>
+be used. A sender that would include <code>external_pub</code> <span class="bcp14">MUST</span> instead
+include the <code>slim_external_pub</code> extension, populated with the
+reference to the relevant HPKEPublicKey. The actual public key is
+resolved per <a href="#large-object-retrieval" class="auto internal xref">Section 6</a>, as for any other HPKEPublicKeyRef.<a href="#section-14-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="security-considerations">
+<section id="section-15">
+      <h2 id="name-security-considerations">
+<a href="#section-15" class="section-number selfRef">15. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
+      </h2>
+<p id="section-15-1">Outside the SlimCommit split path described below, the signing and
+transcript-hashing rules of <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> are preserved by SlimMLS: every struct
+that was authenticated under <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> remains authenticated, with large
+objects bound through the collision-resistant hash references defined in
+<a href="#ref-types" class="auto internal xref">Section 4</a>. The strength of the binding is therefore at most the collision
+resistance of the ciphersuite hash.<a href="#section-15-1" class="pilcrow">¶</a></p>
+<p id="section-15-2">SlimCommit (<a href="#slim-commit" class="auto internal xref">Section 9</a>) changes the exact authentication surface of
+Commits with paths. The path's HPKEPublicKeyRefs are not covered directly by the
+framing signature or OuterUpdateHash, but are authenticated by the parent hash
+chain rooted in the signed SlimLeafNode. The path's HPKECiphertextRefs are not
+authenticated by the signature and are treated as delivery objects. Tampering
+with an HPKECiphertextRef or the referenced HPKECiphertext can only cause the
+recipient to fail reference resolution, decryption, derived-public-key matching,
+parent-hash validation, or confirmation-tag validation.<a href="#section-15-2" class="pilcrow">¶</a></p>
+<p id="section-15-3">Large-object retrieval channels (<a href="#large-object-retrieval" class="auto internal xref">Section 6</a>) may be
+unauthenticated. The hash-reference verification in step 2 of that section is
+what provides authentication of the resolved objects, and is what binds them to
+the signed and transcript-hashed slim structures. A Delivery Service or network
+attacker that withholds, modifies, or substitutes entries in any channel can
+only cause a recipient to fail to resolve a reference, which is functionally
+equivalent to dropping the message, which the DS can already do under
+<span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>. An attacker may also surface unsolicited or malformed objects
+through any channel. Recipients <span class="bcp14">MUST NOT</span> treat the contents of any retrieval
+channel as authoritative metadata and <span class="bcp14">MUST</span> ignore objects whose hash does not
+match any reference the recipient needs to resolve.<a href="#section-15-3" class="pilcrow">¶</a></p>
+<p id="section-15-4">A client that caches resolved large objects across groups <span class="bcp14">MUST</span> index its
+cache by the tuple (reference type, ciphersuite hash function, reference value).
+The same underlying object yields different reference values under different
+hash functions, and a cached object <span class="bcp14">MUST NOT</span> be treated as authoritative across
+ciphersuites whose hash functions differ.<a href="#section-15-4" class="pilcrow">¶</a></p>
+<p id="section-15-5">SlimKeyPackage batch signatures (<a href="#slim-key-package" class="auto internal xref">Section 7</a>) replace independent
+LeafNode signatures with one signature over a Merkle root. A recipient <span class="bcp14">MUST</span>
+verify both the Merkle inclusion proof and the batch signature before treating
+the SlimLeafNodeTBS as authenticated. The signed SlimKeyPackageBatchTBS binds
+the ciphersuite, tree size, Merkle root, and SignaturePublicKeyRef. Together
+with the SignWithLabel label and the Merkle leaf and parent hash labels, this
+prevents a valid batch signature from being replayed across protocols,
+ciphersuites, or signing keys.<a href="#section-15-5" class="pilcrow">¶</a></p>
+<p id="section-15-6">All SlimKeyPackages that share the same <code>batch_signature_ref</code> are linkable as
+members of the same publication batch. Deployments that consider this
+linkability sensitive can reduce batch sizes or publish independently signed
+batches.<a href="#section-15-6" class="pilcrow">¶</a></p>
+<p id="section-15-7">SlimWelcome (<a href="#slim-welcome" class="auto internal xref">Section 8</a>) introduces two confidentiality changes
+relative to the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> Welcome:<a href="#section-15-7" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-15-8.1">
+          <p id="section-15-8.1.1">When <code>WelcomeGroupInfo.info_type</code> is <code>plaintext</code>, the GroupInfo is visible to
+the DS and to anyone observing the SlimWelcome on the wire. This variant is
+appropriate only in deployments where the GroupInfo is not considered
+confidential with respect to those parties (e.g., where the DS already
+maintains group state).<a href="#section-15-8.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-15-8.2">
+          <p id="section-15-8.2.1">When <code>SlimWelcome.group_info</code> is absent (presence octet 0), the DS
+chooses which WelcomeGroupInfo a joiner ultimately receives.<a href="#section-15-8.2.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-15-9">In both cases authenticity is unchanged: the joiner <span class="bcp14">MUST</span> verify the
+SlimGroupInfo signature as under <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, and a SlimWelcome that reaches a
+recipient with <code>group_info</code> still absent <span class="bcp14">MUST</span> be rejected
+(<a href="#welcome-group-info" class="auto internal xref">Section 8.3</a>).<a href="#section-15-9" class="pilcrow">¶</a></p>
+<p id="section-15-10">SlimPrivateMessage and encrypted SlimWelcome GroupInfo signatures are carried
+inside the encrypted plaintext using the SignatureOrRef <code>signature</code> variant.
+This prevents a visible LargeObjectCarrier signature from being tested against
+known signature public keys to identify the hidden signer.<a href="#section-15-10" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="iana-considerations">
+<section id="section-16">
+      <h2 id="name-iana-considerations">
+<a href="#section-16" class="section-number selfRef">16. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
+      </h2>
+<div id="slimmls-mls-extension-types">
+<section id="section-16.1">
+        <h3 id="name-slimmls-mls-extension-types">
+<a href="#section-16.1" class="section-number selfRef">16.1. </a><a href="#name-slimmls-mls-extension-types" class="section-name selfRef">SlimMLS MLS Extension Types</a>
+        </h3>
+<p id="section-16.1-1">IANA is requested to add the following entries to the "MLS Extension
+Types" registry defined in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-17.3" class="relref">Section 17.3</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>:<a href="#section-16.1-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-3">
+          <caption><a href="#table-3" class="selfRef">Table 3</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Value</th>
+              <th class="text-left" rowspan="1" colspan="1">Name</th>
+              <th class="text-left" rowspan="1" colspan="1">Message(s)</th>
+              <th class="text-left" rowspan="1" colspan="1">Recommended</th>
+              <th class="text-left" rowspan="1" colspan="1">Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">0x000C</td>
+              <td class="text-left" rowspan="1" colspan="1">slim_mls</td>
+              <td class="text-left" rowspan="1" colspan="1">GC</td>
+              <td class="text-left" rowspan="1" colspan="1">Y</td>
+              <td class="text-left" rowspan="1" colspan="1">RFC XXXX</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">0x000D</td>
+              <td class="text-left" rowspan="1" colspan="1">slim_ratchet_tree</td>
+              <td class="text-left" rowspan="1" colspan="1">GI</td>
+              <td class="text-left" rowspan="1" colspan="1">Y</td>
+              <td class="text-left" rowspan="1" colspan="1">RFC XXXX</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">0x000E</td>
+              <td class="text-left" rowspan="1" colspan="1">slim_external_pub</td>
+              <td class="text-left" rowspan="1" colspan="1">GI</td>
+              <td class="text-left" rowspan="1" colspan="1">Y</td>
+              <td class="text-left" rowspan="1" colspan="1">RFC XXXX</td>
+            </tr>
+          </tbody>
+        </table>
+<p id="section-16.1-3">(Values are SlimMLS's suggested allocations. IANA may pick others.)<a href="#section-16.1-3" class="pilcrow">¶</a></p>
+<p id="section-16.1-4">The "Message(s)" abbreviations are those used in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-17.3" class="relref">Section 17.3</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>. "GC" denotes a GroupContext extension and "GI" denotes a
+GroupInfo extension. RFC XXXX is to be replaced with the RFC number
+assigned to this document upon publication.<a href="#section-16.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="slimmls-wire-formats">
+<section id="section-16.2">
+        <h3 id="name-slimmls-wire-formats">
+<a href="#section-16.2" class="section-number selfRef">16.2. </a><a href="#name-slimmls-wire-formats" class="section-name selfRef">SlimMLS Wire Formats</a>
+        </h3>
+<p id="section-16.2-1">IANA is requested to add the following entries to the "MLS Wire
+Formats" registry defined in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-17.2" class="relref">Section 17.2</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>:<a href="#section-16.2-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-4">
+          <caption><a href="#table-4" class="selfRef">Table 4</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Value</th>
+              <th class="text-left" rowspan="1" colspan="1">Name</th>
+              <th class="text-left" rowspan="1" colspan="1">Recommended</th>
+              <th class="text-left" rowspan="1" colspan="1">Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">0x0007</td>
+              <td class="text-left" rowspan="1" colspan="1">mls_slim_welcome</td>
+              <td class="text-left" rowspan="1" colspan="1">Y</td>
+              <td class="text-left" rowspan="1" colspan="1">RFC XXXX</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">0x0008</td>
+              <td class="text-left" rowspan="1" colspan="1">mls_slim_key_package</td>
+              <td class="text-left" rowspan="1" colspan="1">Y</td>
+              <td class="text-left" rowspan="1" colspan="1">RFC XXXX</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">0x0009</td>
+              <td class="text-left" rowspan="1" colspan="1">mls_slim_group_info</td>
+              <td class="text-left" rowspan="1" colspan="1">Y</td>
+              <td class="text-left" rowspan="1" colspan="1">RFC XXXX</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">0x000A</td>
+              <td class="text-left" rowspan="1" colspan="1">mls_slim_public_message</td>
+              <td class="text-left" rowspan="1" colspan="1">Y</td>
+              <td class="text-left" rowspan="1" colspan="1">RFC XXXX</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">0x000B</td>
+              <td class="text-left" rowspan="1" colspan="1">mls_slim_private_message</td>
+              <td class="text-left" rowspan="1" colspan="1">Y</td>
+              <td class="text-left" rowspan="1" colspan="1">RFC XXXX</td>
+            </tr>
+          </tbody>
+        </table>
+<p id="section-16.2-3">(Values are SlimMLS's suggested allocations. IANA may pick others.)<a href="#section-16.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="sec-normative-references">
+<section id="section-17">
+      <h2 id="name-normative-references">
+<a href="#section-17" class="section-number selfRef">17. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+      </h2>
+<dl class="references">
+<dt id="RFC2119">[RFC2119]</dt>
+      <dd>
+<span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc2119">https://www.rfc-editor.org/rfc/rfc2119</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8174">[RFC8174]</dt>
+      <dd>
+<span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8174">https://www.rfc-editor.org/rfc/rfc8174</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9420">[RFC9420]</dt>
+    <dd>
+<span class="refAuthor">Barnes, R.</span>, <span class="refAuthor">Beurdouche, B.</span>, <span class="refAuthor">Robert, R.</span>, <span class="refAuthor">Millican, J.</span>, <span class="refAuthor">Omara, E.</span>, and <span class="refAuthor">K. Cohn-Gordon</span>, <span class="refTitle">"The Messaging Layer Security (MLS) Protocol"</span>, <span class="seriesInfo">RFC 9420</span>, <span class="seriesInfo">DOI 10.17487/RFC9420</span>, <time datetime="2023-07" class="refDate">July 2023</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9420">https://www.rfc-editor.org/rfc/rfc9420</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="acknowledgments">
+<section id="appendix-A">
+      <h2 id="name-acknowledgments">
+<a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
+      </h2>
+<p id="appendix-A-1">TODO acknowledge.<a href="#appendix-A-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="authors-addresses">
+<section id="appendix-B">
+      <h2 id="name-authors-addresses">
+<a href="#name-authors-addresses" class="section-name selfRef">Authors' Addresses</a>
+      </h2>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Raphael Robert</span></div>
+<div dir="auto" class="left"><span class="org">Phoenix R&amp;D</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:ietf@raphaelrobert.com" class="email">ietf@raphaelrobert.com</a>
+</div>
+</address>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Konrad Kohbrok</span></div>
+<div dir="auto" class="left"><span class="org">Phoenix R&amp;D</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:konrad@ratchet.ing" class="email">konrad@ratchet.ing</a>
+</div>
+</address>
+</section>
+</div>
+<script>const toc = document.getElementById("toc");
+toc.querySelector("h2").addEventListener("click", e => {
+  toc.classList.toggle("active");
+});
+toc.querySelector("nav").addEventListener("click", e => {
+  toc.classList.remove("active");
+});
+</script>
+</body>
+</html>
