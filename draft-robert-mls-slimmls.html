@@ -1063,7 +1063,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Robert &amp; Kohbrok</td>
-<td class="center">Expires 5 November 2026</td>
+<td class="center">Expires 21 November 2026</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1076,12 +1076,12 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <dd class="internet-draft">draft-robert-mls-slimmls-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-05-04" class="published">4 May 2026</time>
+<time datetime="2026-05-20" class="published">20 May 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Informational</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2026-11-05">5 November 2026</time></dd>
+<dd class="expires"><time datetime="2026-11-21">21 November 2026</time></dd>
 <dt class="label-authors">Authors:</dt>
 <dd class="authors">
 <div class="author">
@@ -1144,7 +1144,7 @@ need only download the HPKE ciphertext intended for them.<a href="#section-abstr
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 5 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 21 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1189,7 +1189,12 @@ need only download the HPKE ciphertext intended for them.<a href="#section-abstr
             <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-slimmls-structs" class="internal xref">SlimMLS Structs</a></p>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
-            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-large-object-carrier" class="internal xref">Large Object Carrier</a></p>
+            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-large-object-retrieval" class="internal xref">Large Object Retrieval</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.1">
+                <p id="section-toc.1-1.6.2.1.1"><a href="#section-6.1" class="auto internal xref">6.1</a>.  <a href="#name-large-object-carrier" class="internal xref">Large Object Carrier</a></p>
+</li>
+            </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
             <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-slimkeypackage" class="internal xref">SlimKeyPackage</a></p>
@@ -1316,13 +1321,13 @@ storage.<a href="#section-1-1" class="pilcrow">¶</a></p>
 <p id="section-1-2">SlimMLS reduces this overhead by applying a single uniform technique: wherever a
 large object appears inside a structure, it is replaced by a hash reference to
 that object, except for the GroupInfo signatures described in
-<a href="#slim-structs" class="auto internal xref">Section 5</a>. The object itself can be transported alongside the signed
-structure, retrieved from a cache, or fetched separately. Because the binding to
-signed and transcript-hashed structures is preserved by the hash, an untrusted
-Delivery Service (DS) can selectively fan out large objects to the clients that
-need them, omit objects a client already has, or rewrite a carrier without
-compromising authenticity. In turn, clients can selectively fetch objects that
-they are missing.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<a href="#slim-structs" class="auto internal xref">Section 5</a>. Recipients retrieve the actual objects out-of-band as needed.
+Because the binding to signed and transcript-hashed structures is preserved by
+the hash, an untrusted Delivery Service (DS) can selectively fan out large
+objects to the clients that need them, omit objects a client already has, or
+use different retrieval mechanisms per recipient without compromising
+authenticity. In turn,
+clients can selectively fetch objects that they are missing.<a href="#section-1-2" class="pilcrow">¶</a></p>
 <p id="section-1-3">This pattern is not new in MLS: <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> already uses RefHash-based
 references such as KeyPackageRef and ProposalRef. SlimMLS generalizes
 the mechanism.<a href="#section-1-3" class="pilcrow">¶</a></p>
@@ -1358,10 +1363,8 @@ the corresponding type, except that GroupInfo signatures remain inline as in
 <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-3-2.1.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-3-2.2">
-          <p id="section-3-2.2.1">A slim message <span class="bcp14">MAY</span> be accompanied by an unauthenticated carrier
-(<a href="#large-object-carrier" class="auto internal xref">Section 6</a>) holding a subset of the large objects the recipient
-needs. Recipients can also resolve references from a local cache or through an
-application-specific fetch mechanism.<a href="#section-3-2.2.1" class="pilcrow">¶</a></p>
+          <p id="section-3-2.2.1">The referenced large objects are retrieved per <a href="#large-object-retrieval" class="auto internal xref">Section 6</a> if
+and when necessary.<a href="#section-3-2.2.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
 </section>
@@ -1539,28 +1542,68 @@ substitution against <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</s
 later revision.]]<a href="#section-5-11" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="large-object-carrier">
+<div id="large-object-retrieval">
 <section id="section-6">
-      <h2 id="name-large-object-carrier">
-<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-large-object-carrier" class="section-name selfRef">Large Object Carrier</a>
+      <h2 id="name-large-object-retrieval">
+<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-large-object-retrieval" class="section-name selfRef">Large Object Retrieval</a>
       </h2>
-<p id="section-6-1">A client sending a SlimMLS struct over the wire <span class="bcp14">MAY</span> also send a
-LargeObjectCarrier struct that contains a subset of the large structs referenced
-by the SlimMLS struct or by an associated unauthenticated structure such as
-SlimUpdatePath (<a href="#slim-commit" class="auto internal xref">Section 9</a>). When a GroupInfo in a SlimMLS group contains
-extensions with <code>*Ref</code> values, such as <code>slim_ratchet_tree</code>
-(<a href="#slim-ratchet-tree-extension" class="auto internal xref">Section 13</a>) or <code>slim_external_pub</code>
-(<a href="#slim-external-pub-extension" class="auto internal xref">Section 14</a>), the corresponding large objects can be
-provided in a LargeObjectCarrier, from a local cache, or by an
-application-specific fetch mechanism.<a href="#section-6-1" class="pilcrow">¶</a></p>
-<p id="section-6-2">This document does not define a single MLSMessage wrapper for
+<p id="section-6-1">References to large objects in SlimMLS structures, in their associated companion
+structures (e.g., SlimUpdatePath, <a href="#slim-commit" class="auto internal xref">Section 9</a>), and in GroupInfo extensions
+defined by this document <span class="bcp14">MUST</span> be resolved to the corresponding large objects
+when necessary for MLS operations or validation checks.<a href="#section-6-1" class="pilcrow">¶</a></p>
+<p id="section-6-2">SlimMLS does not mandate a specific retrieval mechanism. Implementations might
+obtain large objects through mechanisms such as:<a href="#section-6-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6-3.1">
+          <p id="section-6-3.1.1">The LargeObjectCarrier (<a href="#large-object-carrier" class="auto internal xref">Section 6.1</a>), specified in this
+document.<a href="#section-6-3.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-6-3.2">
+          <p id="section-6-3.2.1">A client-local cache of previously resolved objects.<a href="#section-6-3.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-6-3.3">
+          <p id="section-6-3.3.1">An application-specific fetch mechanism.<a href="#section-6-3.3.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-6-4">Applications can use any combination of these examples, or other mechanisms
+that fit their deployment.<a href="#section-6-4" class="pilcrow">¶</a></p>
+<p id="section-6-5">On receipt of a SlimMLS structure, a client:<a href="#section-6-5" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-6-6">
+<li id="section-6-6.1">
+          <p id="section-6-6.1.1">For every large-object <code>*Ref</code> it needs to process the structure or any
+associated companion structure, locates a candidate object through an
+available retrieval mechanism, such as one of the examples above.<a href="#section-6-6.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-6-6.2">
+          <p id="section-6-6.2.1">Computes the reference of each candidate object under the appropriate
+label (<a href="#ref-types" class="auto internal xref">Section 4</a>) and verifies that it equals the <code>*Ref</code> being
+resolved. A candidate object whose reference does not match <span class="bcp14">MUST NOT</span> be
+used for any cryptographic operation.<a href="#section-6-6.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-6-6.3">
+          <p id="section-6-6.3.1">If a required <code>*Ref</code> cannot be resolved through any available retrieval
+mechanism, the client <span class="bcp14">MUST</span> either request the missing object through an
+application-specific mechanism, for example from the DS, or drop the
+message.<a href="#section-6-6.3.1" class="pilcrow">¶</a></p>
+</li>
+      </ol>
+<div id="large-object-carrier">
+<section id="section-6.1">
+        <h3 id="name-large-object-carrier">
+<a href="#section-6.1" class="section-number selfRef">6.1. </a><a href="#name-large-object-carrier" class="section-name selfRef">Large Object Carrier</a>
+        </h3>
+<p id="section-6.1-1">A client sending a SlimMLS struct over the wire <span class="bcp14">MAY</span> also send a
+LargeObjectCarrier struct that contains a subset of the large objects referenced
+by the SlimMLS struct or by an associated structure such as SlimUpdatePath
+(<a href="#slim-commit" class="auto internal xref">Section 9</a>).<a href="#section-6.1-1" class="pilcrow">¶</a></p>
+<p id="section-6.1-2">This document does not define a single MLSMessage wrapper for
 LargeObjectCarrier. When a carrier is sent on the wire, its encoding,
 multiplexing, and association with the SlimMLS message are provided by the
-application or DS protocol using SlimMLS.<a href="#section-6-2" class="pilcrow">¶</a></p>
-<p id="section-6-3">For each large-object reference type that appears in a slim structure or an
-associated unauthenticated structure, the LargeObjectCarrier contains a vector
-of the corresponding large objects:<a href="#section-6-3" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-6-4">
+application or DS protocol using SlimMLS.<a href="#section-6.1-2" class="pilcrow">¶</a></p>
+<p id="section-6.1-3">For each large-object reference type that appears in a slim structure or an
+associated structure, the LargeObjectCarrier contains a vector of the
+corresponding large objects:<a href="#section-6.1-3" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-6.1-4">
 <pre>
 struct {
   HPKEPublicKey      hpke_public_keys&lt;V&gt;;
@@ -1569,33 +1612,18 @@ struct {
   HPKECiphertext     hpke_ciphertexts&lt;V&gt;;
   Signature          signatures&lt;V&gt;;
 } LargeObjectCarrier;
-</pre><a href="#section-6-4" class="pilcrow">¶</a>
+</pre><a href="#section-6.1-4" class="pilcrow">¶</a>
 </div>
-<p id="section-6-5">The carrier is NOT part of the signed structure. The DS <span class="bcp14">MAY</span> add, remove,
+<p id="section-6.1-5">The carrier is NOT part of the signed structure. The DS <span class="bcp14">MAY</span> add, remove,
 reorder, or substitute entries on a per-recipient basis, e.g., to omit objects
-the recipient already has cached, or to distribute partial-commit ciphertexts.
-The LargeObjectCarrier is optional in the SlimMLS wire protocol. The DS <span class="bcp14">MAY</span>
-reject a message based on a missing LargeObjectCarrier, or on a
-LargeObjectCarrier that is missing the large objects that clients will need to
-process a message, if its local deployment policy requires senders to provide
-those objects proactively.<a href="#section-6-5" class="pilcrow">¶</a></p>
-<p id="section-6-6">On receipt, a client:<a href="#section-6-6" class="pilcrow">¶</a></p>
-<ol start="1" type="1" class="normal type-1" id="section-6-7">
-<li id="section-6-7.1">
-          <p id="section-6-7.1.1">Computes the reference of every entry in the carrier under the
-appropriate label, if a carrier is present.<a href="#section-6-7.1.1" class="pilcrow">¶</a></p>
-</li>
-        <li id="section-6-7.2">
-          <p id="section-6-7.2.1">For every large-object <code>*Ref</code> that the client needs to process the slim
-structure or an associated unauthenticated structure, locates the matching
-object in the carrier, in its local cache, or by using an application-specific
-fetch mechanism.<a href="#section-6-7.2.1" class="pilcrow">¶</a></p>
-</li>
-        <li id="section-6-7.3">
-          <p id="section-6-7.3.1">If any required object is missing, the client <span class="bcp14">MUST</span> request it through an
-application-specific mechanism, for example from the DS, or drop the message.<a href="#section-6-7.3.1" class="pilcrow">¶</a></p>
-</li>
-      </ol>
+the recipient already has cached, or to distribute partial-commit ciphertexts
+(see <a href="#slim-commit" class="auto internal xref">Section 9</a>). The LargeObjectCarrier is optional in the SlimMLS wire
+protocol. The DS <span class="bcp14">MAY</span> reject a message based on a missing LargeObjectCarrier, or
+on a LargeObjectCarrier that is missing the large objects that clients will need
+to process a message, if its local deployment policy requires senders to provide
+those objects proactively.<a href="#section-6.1-5" class="pilcrow">¶</a></p>
+</section>
+</div>
 </section>
 </div>
 <div id="slim-key-package">
@@ -1657,7 +1685,7 @@ SlimLeafNode, including this component, is provided by the batch signature
 inside the SlimLeafNode and the Merkle inclusion proof.<a href="#section-7-5" class="pilcrow">¶</a></p>
 <p id="section-7-6">The HPKEPublicKey corresponding to <code>init_key_ref</code>, together with any large
 objects referenced by the SlimLeafNodeTBS, is resolved per
-<a href="#large-object-carrier" class="auto internal xref">Section 6</a>.<a href="#section-7-6" class="pilcrow">¶</a></p>
+<a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-7-6" class="pilcrow">¶</a></p>
 <div id="slim-key-package-merkle-tree">
 <section id="section-7.1">
         <h3 id="name-keypackage-batch-merkle-tre">
@@ -1795,7 +1823,7 @@ SlimKeyPackageBatchTBS, resolves the SignaturePublicKey corresponding to
 <code>signature_ref</code> using VerifyWithLabel label "SlimKeyPackageBatchTBS".<a href="#section-7.3-4.5.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-7.3-4.6">
-            <p id="section-7.3-4.6.1">All large-object <code>*Ref</code> values are resolved per <a href="#large-object-carrier" class="auto internal xref">Section 6</a>.<a href="#section-7.3-4.6.1" class="pilcrow">¶</a></p>
+            <p id="section-7.3-4.6.1">All large-object <code>*Ref</code> values are resolved per <a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-7.3-4.6.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
@@ -1937,7 +1965,7 @@ TLS-encoded GroupInfo.<a href="#section-8.3-4" class="pilcrow">¶</a></p>
 <p id="section-8.3-5">The outer <code>optional&lt;WelcomeGroupInfo&gt;</code> in the SlimWelcome additionally allows
 the sender to omit the GroupInfo. This mode is intended for server-assisted
 deployments where the sender and recipient can obtain the exact GroupInfo by
-some channel other than the SlimWelcome.<a href="#section-8.3-5" class="pilcrow">¶</a></p>
+some mechanism outside the SlimWelcome.<a href="#section-8.3-5" class="pilcrow">¶</a></p>
 <p id="section-8.3-6">A recipient that receives a SlimWelcome whose <code>group_info</code> field is
 absent <span class="bcp14">MUST</span> consider the SlimWelcome invalid.<a href="#section-8.3-6" class="pilcrow">¶</a></p>
 </section>
@@ -2004,7 +2032,7 @@ reduce each <code>encrypted_path_secret_refs</code> vector to the subset the rec
 needs. The reduced path <span class="bcp14">MUST</span> contain enough HPKECiphertextRefs for the recipient
 to decrypt one path secret and derive the remaining path secrets it needs to
 process the Commit. The corresponding HPKECiphertexts, and any HPKEPublicKeys
-that are functionally needed, are resolved per <a href="#large-object-carrier" class="auto internal xref">Section 6</a>.<a href="#section-9.1-3" class="pilcrow">¶</a></p>
+that are functionally needed, are resolved per <a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-9.1-3" class="pilcrow">¶</a></p>
 <p id="section-9.1-4">The SlimUpdatePath is not signed. Its HPKEPublicKeyRefs are authenticated by
 the parent hash in the committer's SlimLeafNode, as in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.9" class="relref">Section 7.9</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, with HPKEPublicKeyRef replacing HPKEPublicKey in the parent-hash
 computation. Its HPKECiphertextRefs are unauthenticated delivery objects: a
@@ -2283,7 +2311,7 @@ public key for each non-committing recipient.<a href="#section-9.5-4" class="pil
 <li id="section-9.5-6.1">
             <p id="section-9.5-6.1.1">Resolving the HPKECiphertextRefs and SignatureRefs required for the
 recipient, and any HPKEPublicKeyRefs that are functionally needed, per
-<a href="#large-object-carrier" class="auto internal xref">Section 6</a>.<a href="#section-9.5-6.1.1" class="pilcrow">¶</a></p>
+<a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-9.5-6.1.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-9.5-6.2">
             <p id="section-9.5-6.2.1">If SlimCommitFramedContentAuthData contains a <code>signature_ref</code>, resolving and
@@ -2452,7 +2480,7 @@ optional&lt;SlimNode&gt; slim_ratchet_tree&lt;V&gt;;
 <code>ratchet_tree</code> extension in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-12.4.3.3" class="relref">Section 12.4.3.3</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, except that tree
 hash and parent hash computations use the slim node encodings. The large
 objects referenced by the slim nodes are resolved per
-<a href="#large-object-carrier" class="auto internal xref">Section 6</a>.<a href="#section-13-3" class="pilcrow">¶</a></p>
+<a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-13-3" class="pilcrow">¶</a></p>
 <p id="section-13-4">In a SlimMLS group, the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> <code>ratchet_tree</code> extension <span class="bcp14">MUST NOT</span> be used.
 A sender that would include <code>ratchet_tree</code> <span class="bcp14">MUST</span> instead include the
 <code>slim_ratchet_tree</code> extension.<a href="#section-13-4" class="pilcrow">¶</a></p>
@@ -2479,7 +2507,7 @@ struct {
 be used. A sender that would include <code>external_pub</code> <span class="bcp14">MUST</span> instead
 include the <code>slim_external_pub</code> extension, populated with the
 reference to the relevant HPKEPublicKey. The actual public key is
-resolved per <a href="#large-object-carrier" class="auto internal xref">Section 6</a>, as for any other HPKEPublicKeyRef.<a href="#section-14-3" class="pilcrow">¶</a></p>
+resolved per <a href="#large-object-retrieval" class="auto internal xref">Section 6</a>, as for any other HPKEPublicKeyRef.<a href="#section-14-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="security-considerations">
@@ -2501,56 +2529,53 @@ authenticated by the signature and are treated as delivery objects. Tampering
 with an HPKECiphertextRef or the referenced HPKECiphertext can only cause the
 recipient to fail reference resolution, decryption, derived-public-key matching,
 parent-hash validation, or confirmation-tag validation.<a href="#section-15-2" class="pilcrow">¶</a></p>
-<p id="section-15-3">The LargeObjectCarrier (<a href="#large-object-carrier" class="auto internal xref">Section 6</a>) is unauthenticated by design.
-A Delivery Service or network attacker that withholds, modifies, or substitutes
-carrier entries can only cause a recipient to fail to resolve a reference, which
-is functionally equivalent to dropping the message, which the DS can already do
-under <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>. A recipient <span class="bcp14">MUST</span> verify that any object it consumes from the
-carrier hashes (under the appropriate label and the ciphersuite hash) to the
-corresponding large-object <code>*Ref</code> in the slim structure or associated
-unauthenticated structure before using that object for any cryptographic
-operation.<a href="#section-15-3" class="pilcrow">¶</a></p>
-<p id="section-15-4">Because the carrier is unauthenticated, an attacker can also include
-unsolicited or malformed objects in it. Recipients <span class="bcp14">MUST NOT</span> treat the
-carrier as authoritative metadata and <span class="bcp14">MUST</span> ignore objects whose hash does
-not match any reference the recipient needs to process the slim structure or an
-associated unauthenticated structure.<a href="#section-15-4" class="pilcrow">¶</a></p>
-<p id="section-15-5">A client that caches resolved large objects across groups <span class="bcp14">MUST</span> index its
+<p id="section-15-3">Large-object retrieval mechanisms (<a href="#large-object-retrieval" class="auto internal xref">Section 6</a>) may be
+unauthenticated. The hash-reference verification in step 2 of that section is
+what provides authentication of the resolved objects, and is what binds them to
+the signed and transcript-hashed slim structures. A Delivery Service or network
+attacker that withholds, modifies, or substitutes objects in any such mechanism
+can only cause a recipient to fail to resolve a reference, which is
+functionally equivalent to dropping the message, which the DS can already do
+under <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>. An attacker may also surface unsolicited or malformed
+objects through any retrieval mechanism. Recipients <span class="bcp14">MUST NOT</span> treat the contents
+of any retrieval mechanism as authoritative metadata and <span class="bcp14">MUST</span> ignore objects
+whose hash does not match any reference the recipient needs to resolve.<a href="#section-15-3" class="pilcrow">¶</a></p>
+<p id="section-15-4">A client that caches resolved large objects across groups <span class="bcp14">MUST</span> index its
 cache by the tuple (reference type, ciphersuite hash function, reference value).
 The same underlying object yields different reference values under different
 hash functions, and a cached object <span class="bcp14">MUST NOT</span> be treated as authoritative across
-ciphersuites whose hash functions differ.<a href="#section-15-5" class="pilcrow">¶</a></p>
-<p id="section-15-6">SlimKeyPackage batch signatures (<a href="#slim-key-package" class="auto internal xref">Section 7</a>) replace independent
+ciphersuites whose hash functions differ.<a href="#section-15-4" class="pilcrow">¶</a></p>
+<p id="section-15-5">SlimKeyPackage batch signatures (<a href="#slim-key-package" class="auto internal xref">Section 7</a>) replace independent
 LeafNode signatures with one signature over a Merkle root. A recipient <span class="bcp14">MUST</span>
 verify both the Merkle inclusion proof and the batch signature before treating
 the SlimLeafNodeTBS as authenticated. The signed SlimKeyPackageBatchTBS binds
 the ciphersuite, tree size, Merkle root, and SignaturePublicKeyRef. Together
 with the SignWithLabel label and the Merkle leaf and parent hash labels, this
 prevents a valid batch signature from being replayed across protocols,
-ciphersuites, or signing keys.<a href="#section-15-6" class="pilcrow">¶</a></p>
-<p id="section-15-7">All SlimKeyPackages that share the same <code>batch_signature_ref</code> are linkable as
+ciphersuites, or signing keys.<a href="#section-15-5" class="pilcrow">¶</a></p>
+<p id="section-15-6">All SlimKeyPackages that share the same <code>batch_signature_ref</code> are linkable as
 members of the same publication batch. Deployments that consider this
 linkability sensitive can reduce batch sizes or publish independently signed
-batches.<a href="#section-15-7" class="pilcrow">¶</a></p>
-<p id="section-15-8">SlimWelcome (<a href="#slim-welcome" class="auto internal xref">Section 8</a>) introduces two confidentiality changes
-relative to the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> Welcome:<a href="#section-15-8" class="pilcrow">¶</a></p>
+batches.<a href="#section-15-6" class="pilcrow">¶</a></p>
+<p id="section-15-7">SlimWelcome (<a href="#slim-welcome" class="auto internal xref">Section 8</a>) introduces two confidentiality changes
+relative to the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> Welcome:<a href="#section-15-7" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-15-9.1">
-          <p id="section-15-9.1.1">When <code>WelcomeGroupInfo.info_type</code> is <code>plaintext</code>, the GroupInfo is visible to
+<li class="normal" id="section-15-8.1">
+          <p id="section-15-8.1.1">When <code>WelcomeGroupInfo.info_type</code> is <code>plaintext</code>, the GroupInfo is visible to
 the DS and to anyone observing the SlimWelcome on the wire. This variant is
 appropriate only in deployments where the GroupInfo is not considered
 confidential with respect to those parties (e.g., where the DS already
-maintains group state).<a href="#section-15-9.1.1" class="pilcrow">¶</a></p>
+maintains group state).<a href="#section-15-8.1.1" class="pilcrow">¶</a></p>
 </li>
-        <li class="normal" id="section-15-9.2">
-          <p id="section-15-9.2.1">When <code>SlimWelcome.group_info</code> is absent (presence octet 0), the DS
-chooses which WelcomeGroupInfo a joiner ultimately receives.<a href="#section-15-9.2.1" class="pilcrow">¶</a></p>
+        <li class="normal" id="section-15-8.2">
+          <p id="section-15-8.2.1">When <code>SlimWelcome.group_info</code> is absent (presence octet 0), the DS
+chooses which WelcomeGroupInfo a joiner ultimately receives.<a href="#section-15-8.2.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
-<p id="section-15-10">In both cases authenticity is unchanged: the joiner <span class="bcp14">MUST</span> verify the
+<p id="section-15-9">In both cases authenticity is unchanged: the joiner <span class="bcp14">MUST</span> verify the
 GroupInfo signature exactly as under <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, and a SlimWelcome
 that reaches a recipient with <code>group_info</code> still absent <span class="bcp14">MUST</span> be
-rejected (<a href="#welcome-group-info" class="auto internal xref">Section 8.3</a>).<a href="#section-15-10" class="pilcrow">¶</a></p>
+rejected (<a href="#welcome-group-info" class="auto internal xref">Section 8.3</a>).<a href="#section-15-9" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="iana-considerations">

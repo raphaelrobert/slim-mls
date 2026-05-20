@@ -5,7 +5,7 @@
 Messaging Layer Security                                       R. Robert
 Internet-Draft                                                K. Kohbrok
 Intended status: Informational                               Phoenix R&D
-Expires: 5 November 2026                                      4 May 2026
+Expires: 21 November 2026                                    20 May 2026
 
 
                                 SlimMLS
@@ -57,7 +57,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 5 November 2026.
+   This Internet-Draft will expire on 21 November 2026.
 
 Copyright Notice
 
@@ -80,7 +80,8 @@ Table of Contents
    3.  Overview
    4.  Reference Computation
    5.  SlimMLS Structs
-   6.  Large Object Carrier
+   6.  Large Object Retrieval
+     6.1.  Large Object Carrier
    7.  SlimKeyPackage
      7.1.  KeyPackage Batch Merkle Tree
      7.2.  OuterKeyPackageHash component
@@ -125,14 +126,13 @@ Table of Contents
    SlimMLS reduces this overhead by applying a single uniform technique:
    wherever a large object appears inside a structure, it is replaced by
    a hash reference to that object, except for the GroupInfo signatures
-   described in Section 5.  The object itself can be transported
-   alongside the signed structure, retrieved from a cache, or fetched
-   separately.  Because the binding to signed and transcript-hashed
-   structures is preserved by the hash, an untrusted Delivery Service
-   (DS) can selectively fan out large objects to the clients that need
-   them, omit objects a client already has, or rewrite a carrier without
-   compromising authenticity.  In turn, clients can selectively fetch
-   objects that they are missing.
+   described in Section 5.  Recipients retrieve the actual objects out-
+   of-band as needed.  Because the binding to signed and transcript-
+   hashed structures is preserved by the hash, an untrusted Delivery
+   Service (DS) can selectively fan out large objects to the clients
+   that need them, omit objects a client already has, or use different
+   retrieval mechanisms per recipient without compromising authenticity.
+   In turn, clients can selectively fetch objects that they are missing.
 
    This pattern is not new in MLS: [RFC9420] already uses RefHash-based
    references such as KeyPackageRef and ProposalRef.  SlimMLS
@@ -162,10 +162,8 @@ Table of Contents
       replaced with a hash reference of the corresponding type, except
       that GroupInfo signatures remain inline as in [RFC9420].
 
-   *  A slim message MAY be accompanied by an unauthenticated carrier
-      (Section 6) holding a subset of the large objects the recipient
-      needs.  Recipients can also resolve references from a local cache
-      or through an application-specific fetch mechanism.
+   *  The referenced large objects are retrieved per Section 6 if and
+      when necessary.
 
 4.  Reference Computation
 
@@ -309,16 +307,50 @@ Table of Contents
    [[TODO: provide explicit TLS presentations for each slim variant in a
    later revision.]]
 
-6.  Large Object Carrier
+6.  Large Object Retrieval
+
+   References to large objects in SlimMLS structures, in their
+   associated companion structures (e.g., SlimUpdatePath, Section 9),
+   and in GroupInfo extensions defined by this document MUST be resolved
+   to the corresponding large objects when necessary for MLS operations
+   or validation checks.
+
+   SlimMLS does not mandate a specific retrieval mechanism.
+   Implementations might obtain large objects through mechanisms such
+   as:
+
+   *  The LargeObjectCarrier (Section 6.1), specified in this document.
+
+   *  A client-local cache of previously resolved objects.
+
+   *  An application-specific fetch mechanism.
+
+   Applications can use any combination of these examples, or other
+   mechanisms that fit their deployment.
+
+   On receipt of a SlimMLS structure, a client:
+
+   1.  For every large-object *Ref it needs to process the structure or
+       any associated companion structure, locates a candidate object
+       through an available retrieval mechanism, such as one of the
+       examples above.
+
+   2.  Computes the reference of each candidate object under the
+       appropriate label (Section 4) and verifies that it equals the
+       *Ref being resolved.  A candidate object whose reference does not
+       match MUST NOT be used for any cryptographic operation.
+
+   3.  If a required *Ref cannot be resolved through any available
+       retrieval mechanism, the client MUST either request the missing
+       object through an application-specific mechanism, for example
+       from the DS, or drop the message.
+
+6.1.  Large Object Carrier
 
    A client sending a SlimMLS struct over the wire MAY also send a
-   LargeObjectCarrier struct that contains a subset of the large structs
-   referenced by the SlimMLS struct or by an associated unauthenticated
-   structure such as SlimUpdatePath (Section 9).  When a GroupInfo in a
-   SlimMLS group contains extensions with *Ref values, such as
-   slim_ratchet_tree (Section 13) or slim_external_pub (Section 14), the
-   corresponding large objects can be provided in a LargeObjectCarrier,
-   from a local cache, or by an application-specific fetch mechanism.
+   LargeObjectCarrier struct that contains a subset of the large objects
+   referenced by the SlimMLS struct or by an associated structure such
+   as SlimUpdatePath (Section 9).
 
    This document does not define a single MLSMessage wrapper for
    LargeObjectCarrier.  When a carrier is sent on the wire, its
@@ -326,8 +358,8 @@ Table of Contents
    provided by the application or DS protocol using SlimMLS.
 
    For each large-object reference type that appears in a slim structure
-   or an associated unauthenticated structure, the LargeObjectCarrier
-   contains a vector of the corresponding large objects:
+   or an associated structure, the LargeObjectCarrier contains a vector
+   of the corresponding large objects:
 
    struct {
      HPKEPublicKey      hpke_public_keys<V>;
@@ -340,26 +372,12 @@ Table of Contents
    The carrier is NOT part of the signed structure.  The DS MAY add,
    remove, reorder, or substitute entries on a per-recipient basis,
    e.g., to omit objects the recipient already has cached, or to
-   distribute partial-commit ciphertexts.  The LargeObjectCarrier is
-   optional in the SlimMLS wire protocol.  The DS MAY reject a message
-   based on a missing LargeObjectCarrier, or on a LargeObjectCarrier
-   that is missing the large objects that clients will need to process a
-   message, if its local deployment policy requires senders to provide
-   those objects proactively.
-
-   On receipt, a client:
-
-   1.  Computes the reference of every entry in the carrier under the
-       appropriate label, if a carrier is present.
-
-   2.  For every large-object *Ref that the client needs to process the
-       slim structure or an associated unauthenticated structure,
-       locates the matching object in the carrier, in its local cache,
-       or by using an application-specific fetch mechanism.
-
-   3.  If any required object is missing, the client MUST request it
-       through an application-specific mechanism, for example from the
-       DS, or drop the message.
+   distribute partial-commit ciphertexts (see Section 9).  The
+   LargeObjectCarrier is optional in the SlimMLS wire protocol.  The DS
+   MAY reject a message based on a missing LargeObjectCarrier, or on a
+   LargeObjectCarrier that is missing the large objects that clients
+   will need to process a message, if its local deployment policy
+   requires senders to provide those objects proactively.
 
 7.  SlimKeyPackage
 
@@ -663,7 +681,7 @@ Table of Contents
    The outer optional<WelcomeGroupInfo> in the SlimWelcome additionally
    allows the sender to omit the GroupInfo.  This mode is intended for
    server-assisted deployments where the sender and recipient can obtain
-   the exact GroupInfo by some channel other than the SlimWelcome.
+   the exact GroupInfo by some mechanism outside the SlimWelcome.
 
    A recipient that receives a SlimWelcome whose group_info field is
    absent MUST consider the SlimWelcome invalid.
@@ -1180,22 +1198,19 @@ Table of Contents
    recipient to fail reference resolution, decryption, derived-public-
    key matching, parent-hash validation, or confirmation-tag validation.
 
-   The LargeObjectCarrier (Section 6) is unauthenticated by design.  A
-   Delivery Service or network attacker that withholds, modifies, or
-   substitutes carrier entries can only cause a recipient to fail to
+   Large-object retrieval mechanisms (Section 6) may be unauthenticated.
+   The hash-reference verification in step 2 of that section is what
+   provides authentication of the resolved objects, and is what binds
+   them to the signed and transcript-hashed slim structures.  A Delivery
+   Service or network attacker that withholds, modifies, or substitutes
+   objects in any such mechanism can only cause a recipient to fail to
    resolve a reference, which is functionally equivalent to dropping the
-   message, which the DS can already do under [RFC9420].  A recipient
-   MUST verify that any object it consumes from the carrier hashes
-   (under the appropriate label and the ciphersuite hash) to the
-   corresponding large-object *Ref in the slim structure or associated
-   unauthenticated structure before using that object for any
-   cryptographic operation.
-
-   Because the carrier is unauthenticated, an attacker can also include
-   unsolicited or malformed objects in it.  Recipients MUST NOT treat
-   the carrier as authoritative metadata and MUST ignore objects whose
-   hash does not match any reference the recipient needs to process the
-   slim structure or an associated unauthenticated structure.
+   message, which the DS can already do under [RFC9420].  An attacker
+   may also surface unsolicited or malformed objects through any
+   retrieval mechanism.  Recipients MUST NOT treat the contents of any
+   retrieval mechanism as authoritative metadata and MUST ignore objects
+   whose hash does not match any reference the recipient needs to
+   resolve.
 
    A client that caches resolved large objects across groups MUST index
    its cache by the tuple (reference type, ciphersuite hash function,
