@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2026-05-19T00:52:25.800982+00:00",
+  "timestamp": "2026-05-21T00:53:39.264729+00:00",
   "repo": "raphaelrobert/slim-mls",
   "labels": [
     {
@@ -50,5 +50,243 @@
     }
   ],
   "issues": [],
-  "pulls": []
+  "pulls": [
+    {
+      "number": 1,
+      "id": "PR_kwDOSNwvCs7dDZmz",
+      "title": "dedicated large object retrieval section",
+      "url": "https://github.com/raphaelrobert/slim-mls/pull/1",
+      "state": "MERGED",
+      "author": "kkohbrok",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [],
+      "labels": [],
+      "body": "",
+      "createdAt": "2026-05-19T11:57:10Z",
+      "updatedAt": "2026-05-20T12:25:12Z",
+      "baseRepository": "raphaelrobert/slim-mls",
+      "baseRefName": "main",
+      "baseRefOid": "66c539bf5da48fc4ce2c540372597f583b7a230a",
+      "headRepository": "raphaelrobert/slim-mls",
+      "headRefName": "konrad/large_object_retrieval",
+      "headRefOid": "cdd35cd389c6afab0b611fe0c292e15566414c8e",
+      "closedAt": "2026-05-20T12:25:12Z",
+      "mergedAt": "2026-05-20T12:25:12Z",
+      "mergedBy": "kkohbrok",
+      "mergeCommit": {
+        "oid": "639e230e00323bc265a0f7053e25e1a0255bd0b3"
+      },
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOSNwvCs8AAAABAfHaXA",
+          "commit": {
+            "abbreviatedOid": "b4cdd3b"
+          },
+          "author": "raphaelrobert",
+          "authorAssociation": "OWNER",
+          "state": "CHANGES_REQUESTED",
+          "body": "",
+          "createdAt": "2026-05-20T10:35:38Z",
+          "updatedAt": "2026-05-20T10:36:04Z",
+          "comments": [
+            {
+              "originalPosition": 45,
+              "body": "I wouldn't say we define anything here. This should really only be about examples that applications can follow. We should not be more prescriptive than that.",
+              "createdAt": "2026-05-20T10:35:38Z",
+              "updatedAt": "2026-05-20T10:36:04Z"
+            }
+          ]
+        },
+        {
+          "id": "PRR_kwDOSNwvCs8AAAABAft8qg",
+          "commit": {
+            "abbreviatedOid": "cdd35cd"
+          },
+          "author": "raphaelrobert",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2026-05-20T12:00:47Z",
+          "updatedAt": "2026-05-20T12:00:47Z",
+          "comments": []
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "id": "PR_kwDOSNwvCs7dDaAj",
+      "title": "remove exception for GroupInfo",
+      "url": "https://github.com/raphaelrobert/slim-mls/pull/2",
+      "state": "MERGED",
+      "author": "kkohbrok",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [],
+      "labels": [],
+      "body": "",
+      "createdAt": "2026-05-19T11:57:29Z",
+      "updatedAt": "2026-05-20T13:52:50Z",
+      "baseRepository": "raphaelrobert/slim-mls",
+      "baseRefName": "main",
+      "baseRefOid": "639e230e00323bc265a0f7053e25e1a0255bd0b3",
+      "headRepository": "raphaelrobert/slim-mls",
+      "headRefName": "konrad/remove_groupinfo_exception",
+      "headRefOid": "55ed201d42c8bce1443b693d1f990b633e561b78",
+      "closedAt": "2026-05-20T13:52:50Z",
+      "mergedAt": "2026-05-20T13:52:50Z",
+      "mergedBy": "kkohbrok",
+      "mergeCommit": {
+        "oid": "7b9499127780cc6e69442a81b9a2ea914d143a54"
+      },
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOSNwvCs8AAAABAfIdVA",
+          "commit": {
+            "abbreviatedOid": "55ed201"
+          },
+          "author": "raphaelrobert",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2026-05-20T10:37:58Z",
+          "updatedAt": "2026-05-20T13:48:53Z",
+          "comments": []
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "id": "PR_kwDOSNwvCs7dDmKc",
+      "title": "remove references to other I-Ds",
+      "url": "https://github.com/raphaelrobert/slim-mls/pull/3",
+      "state": "MERGED",
+      "author": "kkohbrok",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [],
+      "labels": [],
+      "body": "",
+      "createdAt": "2026-05-19T12:07:12Z",
+      "updatedAt": "2026-05-20T13:56:42Z",
+      "baseRepository": "raphaelrobert/slim-mls",
+      "baseRefName": "main",
+      "baseRefOid": "7b9499127780cc6e69442a81b9a2ea914d143a54",
+      "headRepository": "raphaelrobert/slim-mls",
+      "headRefName": "konrad/remove_id_references",
+      "headRefOid": "4a14c2681fcbee54c7febaac0e342b5497d74a93",
+      "closedAt": "2026-05-20T13:56:42Z",
+      "mergedAt": "2026-05-20T13:56:42Z",
+      "mergedBy": "kkohbrok",
+      "mergeCommit": {
+        "oid": "933f60dde89519e581b60184364659b32ccf1005"
+      },
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOSNwvCs8AAAABAfJE0g",
+          "commit": {
+            "abbreviatedOid": "b3dc126"
+          },
+          "author": "raphaelrobert",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2026-05-20T10:39:26Z",
+          "updatedAt": "2026-05-20T10:39:26Z",
+          "comments": []
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "id": "PR_kwDOSNwvCs7dby4Z",
+      "title": "new abstract/intro and struct overhaul",
+      "url": "https://github.com/raphaelrobert/slim-mls/pull/4",
+      "state": "MERGED",
+      "author": "kkohbrok",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [],
+      "labels": [],
+      "body": "",
+      "createdAt": "2026-05-20T08:36:53Z",
+      "updatedAt": "2026-05-20T14:00:17Z",
+      "baseRepository": "raphaelrobert/slim-mls",
+      "baseRefName": "main",
+      "baseRefOid": "933f60dde89519e581b60184364659b32ccf1005",
+      "headRepository": "raphaelrobert/slim-mls",
+      "headRefName": "konrad/struct_overhaul",
+      "headRefOid": "cfc518043c25bb985c420befea1c5ff669e67ba8",
+      "closedAt": "2026-05-20T14:00:17Z",
+      "mergedAt": "2026-05-20T14:00:17Z",
+      "mergedBy": "kkohbrok",
+      "mergeCommit": {
+        "oid": "b0690238791c4f8e3b4bd0fc80d9c5f073a8820e"
+      },
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOSNwvCs8AAAABAfL_Lw",
+          "commit": {
+            "abbreviatedOid": "4605e2b"
+          },
+          "author": "raphaelrobert",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2026-05-20T10:45:58Z",
+          "updatedAt": "2026-05-20T10:45:58Z",
+          "comments": []
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "id": "PR_kwDOSNwvCs7ddu6_",
+      "title": "be clear about benefits for different deployments",
+      "url": "https://github.com/raphaelrobert/slim-mls/pull/5",
+      "state": "MERGED",
+      "author": "kkohbrok",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [],
+      "labels": [],
+      "body": "",
+      "createdAt": "2026-05-20T09:56:33Z",
+      "updatedAt": "2026-05-20T13:57:11Z",
+      "baseRepository": "raphaelrobert/slim-mls",
+      "baseRefName": "konrad/struct_overhaul",
+      "baseRefOid": "4605e2b0e8db38bc7fef8708388d2f2a59fb67fc",
+      "headRepository": "raphaelrobert/slim-mls",
+      "headRefName": "konrad/different_deployments",
+      "headRefOid": "d46be1359a04c91b73d19c4c1542c3b895b8fe68",
+      "closedAt": "2026-05-20T13:57:11Z",
+      "mergedAt": "2026-05-20T13:57:11Z",
+      "mergedBy": "kkohbrok",
+      "mergeCommit": {
+        "oid": "c1f725dd640be78ad77570e641ac5eb2d1e07b7f"
+      },
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOSNwvCs8AAAABAfMm3A",
+          "commit": {
+            "abbreviatedOid": "50a8819"
+          },
+          "author": "raphaelrobert",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2026-05-20T10:47:28Z",
+          "updatedAt": "2026-05-20T10:47:45Z",
+          "comments": [
+            {
+              "originalPosition": 21,
+              "body": "```suggestion\nservice that can assist clients. In such deployments, the DS can omit objects a\n```",
+              "createdAt": "2026-05-20T10:47:28Z",
+              "updatedAt": "2026-05-20T10:47:45Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
