@@ -1065,7 +1065,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Robert &amp; Kohbrok</td>
-<td class="center">Expires 21 November 2026</td>
+<td class="center">Expires 22 November 2026</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1078,12 +1078,12 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <dd class="internet-draft">draft-robert-mls-slimmls-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-05-20" class="published">20 May 2026</time>
+<time datetime="2026-05-21" class="published">21 May 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Informational</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2026-11-21">21 November 2026</time></dd>
+<dd class="expires"><time datetime="2026-11-22">22 November 2026</time></dd>
 <dt class="label-authors">Authors:</dt>
 <dd class="authors">
 <div class="author">
@@ -1148,7 +1148,7 @@ the signature inside the ciphertext.<a href="#section-abstract-1" class="pilcrow
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 21 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 22 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1193,7 +1193,13 @@ the signature inside the ciphertext.<a href="#section-abstract-1" class="pilcrow
             <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-slimmls-structs" class="internal xref">SlimMLS Structs</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
-                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-slimgroupinfo" class="internal xref">SlimGroupInfo</a></p>
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-slimleafnode" class="internal xref">SlimLeafNode</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2">
+                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-slimparentnode-and-slimpare" class="internal xref">SlimParentNode and SlimParentHashInput</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.3">
+                <p id="section-toc.1-1.5.2.3.1"><a href="#section-5.3" class="auto internal xref">5.3</a>.  <a href="#name-slimgroupinfo" class="internal xref">SlimGroupInfo</a></p>
 </li>
             </ul>
 </li>
@@ -1297,7 +1303,15 @@ the signature inside the ciphertext.<a href="#section-abstract-1" class="pilcrow
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.17">
-            <p id="section-toc.1-1.17.1"><a href="#section-17" class="auto internal xref">17</a>. <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+            <p id="section-toc.1-1.17.1"><a href="#section-17" class="auto internal xref">17</a>. <a href="#name-references" class="internal xref">References</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.17.2.1">
+                <p id="section-toc.1-1.17.2.1.1"><a href="#section-17.1" class="auto internal xref">17.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.17.2.2">
+                <p id="section-toc.1-1.17.2.2.1"><a href="#section-17.2" class="auto internal xref">17.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+</li>
+            </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.18">
             <p id="section-toc.1-1.18.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
@@ -1405,9 +1419,12 @@ and when necessary.<a href="#section-3-2.2.1" class="pilcrow">¶</a></p>
       <h2 id="name-reference-computation">
 <a href="#section-4" class="section-number selfRef">4. </a><a href="#name-reference-computation" class="section-name selfRef">Reference Computation</a>
       </h2>
-<p id="section-4-1">All new references are computed in the same style as KeyPackageRef in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-5.2" class="relref">Section 5.2</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, i.e., using RefHash instantiated with the group's ciphersuite
+<p id="section-4-1">All new references are computed in the same style as KeyPackageRef in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-5.2" class="relref">Section 5.2</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, i.e., using RefHash instantiated with the relevant ciphersuite
 hash function and a label unique to the referenced object type. Inputs are
-TLS-encoded per <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-4-1" class="pilcrow">¶</a></p>
+TLS-encoded per <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>. For group-bound structures, the relevant
+ciphersuite is the group's ciphersuite. For references contained in or computed
+over a SlimKeyPackage, the relevant ciphersuite is
+<code>outer_key_package.cipher_suite</code> of that SlimKeyPackage.<a href="#section-4-1" class="pilcrow">¶</a></p>
 <p id="section-4-2">The following reference types are defined:<a href="#section-4-2" class="pilcrow">¶</a></p>
 <table class="center" id="table-1">
         <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
@@ -1585,9 +1602,126 @@ nested struct.<a href="#section-5-7" class="pilcrow">¶</a></p>
           </tr>
         </tbody>
       </table>
-<p id="section-5-9">The following slim tree structures are used in tree-hash and parent-hash
-computations:<a href="#section-5-9" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-5-10">
+<p id="section-5-9">The exact TLS presentation of each remaining slim struct is obtained by
+mechanical substitution against <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> and is not repeated here.<a href="#section-5-9" class="pilcrow">¶</a></p>
+<p id="section-5-10">[[TODO: provide explicit TLS presentations for each slim variant in a
+later revision.]]<a href="#section-5-10" class="pilcrow">¶</a></p>
+<div id="slim-leaf-node">
+<section id="section-5.1">
+        <h3 id="name-slimleafnode">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-slimleafnode" class="section-name selfRef">SlimLeafNode</a>
+        </h3>
+<p id="section-5.1-1">SlimLeafNode replaces LeafNode. SlimLeafNodeTBS replaces the LeafNodeTBS input
+defined in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.2" class="relref">Section 7.2</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<p id="section-5.1-2">SlimMLS uses the <code>app_data_dictionary</code> extension specified in <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-mls-extensions-09#section-7.2.1" class="relref">Section 7.2.1</a> of [<a href="#I-D.ietf-mls-extensions" class="cite xref">I-D.ietf-mls-extensions</a>]</span> to carry SlimMLS-specific components in a
+SlimLeafNode's <code>extensions</code> field.<a href="#section-5.1-2" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.1-3">
+<pre>
+struct {
+  opaque sibling_hash&lt;V&gt;;
+} SlimKeyPackageMerkleProofNode;
+
+struct {
+  uint32                         leaf_index;
+  uint32                         tree_size;
+  SlimKeyPackageMerkleProofNode  path&lt;V&gt;;
+} SlimKeyPackageMerkleProof;
+
+struct {
+  HPKEPublicKeyRef      encryption_key_ref;
+  SignaturePublicKeyRef signature_key_ref;
+  CredentialRef         credential_ref;
+  Capabilities          capabilities;
+
+  LeafNodeSource leaf_node_source;
+  select (SlimLeafNodeTBS.leaf_node_source) {
+    case key_package:
+      Lifetime lifetime;
+
+    case update:
+      struct{};
+
+    case commit:
+      opaque parent_hash&lt;V&gt;;
+  };
+
+  Extension extensions&lt;V&gt;;
+
+  select (SlimLeafNodeTBS.leaf_node_source) {
+    case key_package:
+      struct{};
+
+    case update:
+      opaque group_id&lt;V&gt;;
+      uint32 leaf_index;
+
+    case commit:
+      opaque group_id&lt;V&gt;;
+      uint32 leaf_index;
+  };
+} SlimLeafNodeTBS;
+
+struct {
+  HPKEPublicKeyRef      encryption_key_ref;
+  SignaturePublicKeyRef signature_key_ref;
+  CredentialRef         credential_ref;
+  Capabilities          capabilities;
+
+  LeafNodeSource leaf_node_source;
+  select (SlimLeafNode.leaf_node_source) {
+    case key_package:
+      Lifetime lifetime;
+
+    case update:
+      struct{};
+
+    case commit:
+      opaque parent_hash&lt;V&gt;;
+  };
+
+  Extension extensions&lt;V&gt;;
+
+  /*
+    For key_package leaves, this is a SignatureRef to the batch signature.
+    For update and commit leaves, this is a SignatureRef to the normal
+    SlimLeafNode signature over SlimLeafNodeTBS.
+  */
+  SignatureRef signature;
+
+  select (SlimLeafNode.leaf_node_source) {
+    case key_package:
+      SlimKeyPackageMerkleProof proof;
+
+    case update:
+      struct{};
+
+    case commit:
+      struct{};
+  };
+} SlimLeafNode;
+</pre><a href="#section-5.1-3" class="pilcrow">¶</a>
+</div>
+<p id="section-5.1-4">The <code>proof</code> field is present only when <code>leaf_node_source = key_package</code>. It is
+not part of SlimLeafNodeTBS to avoid a circulare dependency. Update and commit
+leaf nodes do not carry this field.<a href="#section-5.1-4" class="pilcrow">¶</a></p>
+<p id="section-5.1-5">For <code>leaf_node_source = key_package</code>, the <code>signature</code> field references the
+SlimKeyPackage batch signature and validation <span class="bcp14">MUST</span> verify both this signature
+and the embedded <code>proof</code> as described in <a href="#slim-key-package-merkle-tree" class="auto internal xref">Section 7.1</a>. This
+allows clients to validate a key-package SlimLeafNode even when it appears in a
+ratchet tree without the enclosing SlimKeyPackage. For leaf nodes whose source
+is <code>update</code> or <code>commit</code>, the <code>signature</code> field is the normal SlimLeafNode
+signature over SlimLeafNodeTBS, verified as in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.3" class="relref">Section 7.3</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> after
+applying the slim substitutions in this document.<a href="#section-5.1-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="slim-parent-structures">
+<section id="section-5.2">
+        <h3 id="name-slimparentnode-and-slimpare">
+<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-slimparentnode-and-slimpare" class="section-name selfRef">SlimParentNode and SlimParentHashInput</a>
+        </h3>
+<p id="section-5.2-1">The following slim tree structures are used in tree-hash and parent-hash
+computations:<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.2-2">
 <pre>
 struct {
   HPKEPublicKeyRef encryption_key_ref;
@@ -1600,24 +1734,22 @@ struct {
   opaque           parent_hash&lt;V&gt;;
   opaque           original_sibling_tree_hash&lt;V&gt;;
 } SlimParentHashInput;
-</pre><a href="#section-5-10" class="pilcrow">¶</a>
+</pre><a href="#section-5.2-2" class="pilcrow">¶</a>
 </div>
-<p id="section-5-11">SlimParentNode replaces ParentNode. SlimParentHashInput replaces the
-ParentHashInput defined in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.9" class="relref">Section 7.9</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-5-11" class="pilcrow">¶</a></p>
-<p id="section-5-12">The exact TLS presentation of each other slim struct is obtained by mechanical
-substitution against <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> and is not repeated here.<a href="#section-5-12" class="pilcrow">¶</a></p>
-<p id="section-5-13">[[TODO: provide explicit TLS presentations for each slim variant in a
-later revision.]]<a href="#section-5-13" class="pilcrow">¶</a></p>
+<p id="section-5.2-3">SlimParentNode replaces ParentNode. SlimParentHashInput replaces the
+ParentHashInput defined in <span><a href="https://rfc-editor.org/rfc/rfc9420#section-7.9" class="relref">Section 7.9</a> of [<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>.<a href="#section-5.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
 <div id="slim-group-info">
-<section id="section-5.1">
+<section id="section-5.3">
         <h3 id="name-slimgroupinfo">
-<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-slimgroupinfo" class="section-name selfRef">SlimGroupInfo</a>
+<a href="#section-5.3" class="section-number selfRef">5.3. </a><a href="#name-slimgroupinfo" class="section-name selfRef">SlimGroupInfo</a>
         </h3>
-<p id="section-5.1-1">SlimGroupInfo is the slim replacement for the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> GroupInfo struct. It
+<p id="section-5.3-1">SlimGroupInfo is the slim replacement for the <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> GroupInfo struct. It
 uses the same fields and verification rules as GroupInfo, except that
 GroupInfo extensions use SlimMLS replacements and the signature is represented
-as SignatureOrRef.<a href="#section-5.1-1" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-5.1-2">
+as SignatureOrRef.<a href="#section-5.3-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.3-2">
 <pre>
 struct {
   GroupContext group_context;
@@ -1637,14 +1769,14 @@ struct {
   */
   SignatureOrRef signature;
 } SlimGroupInfo;
-</pre><a href="#section-5.1-2" class="pilcrow">¶</a>
+</pre><a href="#section-5.3-2" class="pilcrow">¶</a>
 </div>
-<p id="section-5.1-3">The signature is computed and verified as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, except that the
+<p id="section-5.3-3">The signature is computed and verified as in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>, except that the
 to-be-signed content is SlimGroupInfoTBS. A standalone SlimGroupInfo, or a
 SlimGroupInfo carried in <code>WelcomeGroupInfo.info_type = plaintext</code>, <span class="bcp14">MUST</span> use
 <code>signature_type = signature_ref</code>. A SlimGroupInfo encrypted into
 <code>WelcomeGroupInfo.info_type = encrypted</code> <span class="bcp14">MUST</span> use <code>signature_type = signature</code>
-so that the raw signature is protected by the SlimWelcome encryption.<a href="#section-5.1-3" class="pilcrow">¶</a></p>
+so that the raw signature is protected by the SlimWelcome encryption.<a href="#section-5.3-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -1747,12 +1879,12 @@ publication <span class="bcp14">MUST</span> use the <code>mls_slim_key_package</
 (<a href="#wire-formats" class="auto internal xref">Section 11</a>). A recipient <span class="bcp14">MUST</span> reject any Add proposal or wire-format
 message carrying an <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> KeyPackage in the context of a group with the
 <code>slim_mls</code> extension.<a href="#section-7-2" class="pilcrow">¶</a></p>
-<p id="section-7-3"><code>SlimLeafNodeTBS</code> denotes the LeafNodeTBS input defined by <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> after
-applying the slim substitutions in <a href="#slim-structs" class="auto internal xref">Section 5</a>. It is the unsigned part of
-a SlimLeafNode and carries no signature field.<a href="#section-7-3" class="pilcrow">¶</a></p>
+<p id="section-7-3"><code>SlimLeafNodeTBS</code> is the unsigned part of a SlimLeafNode. It carries neither
+the <code>signature</code> field nor the key-package Merkle proof.<a href="#section-7-3" class="pilcrow">¶</a></p>
 <p id="section-7-4">A SlimKeyPackage is partitioned into an OuterSlimKeyPackage (the fields of a
-KeyPackage other than the LeafNode and signature), a SlimLeafNodeTBS, a
-reference to the detached batch signature, and a Merkle inclusion proof:<a href="#section-7-4" class="pilcrow">¶</a></p>
+KeyPackage other than the LeafNode and signature) and a SlimLeafNode. The
+SlimLeafNode carries the SignatureRef of the detached batch signature and its
+Merkle inclusion proof:<a href="#section-7-4" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-7-5">
 <pre>
 struct {
@@ -1761,16 +1893,6 @@ struct {
   HPKEPublicKeyRef init_key_ref;
   Extension        extensions&lt;V&gt;;
 } OuterSlimKeyPackage;
-
-struct {
-  opaque sibling_hash&lt;V&gt;;
-} SlimKeyPackageMerkleProofNode;
-
-struct {
-  uint32                         leaf_index;
-  uint32                         tree_size;
-  SlimKeyPackageMerkleProofNode  path&lt;V&gt;;
-} SlimKeyPackageMerkleProof;
 
 struct {
   ProtocolVersion       version;
@@ -1783,7 +1905,6 @@ struct {
 struct {
   OuterSlimKeyPackage              outer_key_package;
   SlimLeafNode                     leaf_node;
-  SlimKeyPackageMerkleProof        proof;
 } SlimKeyPackage;
 </pre><a href="#section-7-5" class="pilcrow">¶</a>
 </div>
@@ -1791,10 +1912,11 @@ struct {
 signature. Authenticity of <code>outer_key_package</code> is provided by an
 OuterKeyPackageHash component (<a href="#outer-key-package-hash" class="auto internal xref">Section 7.2</a>) placed in the
 SlimLeafNode's <code>app_data_dictionary</code> extension. Authenticity of the
-SlimLeafNode, including this component, is provided by the batch signature
-inside the SlimLeafNode and the Merkle inclusion proof.<a href="#section-7-6" class="pilcrow">¶</a></p>
+SlimLeafNodeTBS, including this component, is provided by the batch signature
+referenced by <code>leaf_node.signature</code> and the Merkle inclusion proof in
+<code>leaf_node.proof</code>.<a href="#section-7-6" class="pilcrow">¶</a></p>
 <p id="section-7-7">The HPKEPublicKey corresponding to <code>init_key_ref</code>, together with any large
-objects referenced by the SlimLeafNodeTBS, is resolved per
+objects referenced by the SlimLeafNode, is resolved per
 <a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-7-7" class="pilcrow">¶</a></p>
 <div id="slim-key-package-merkle-tree">
 <section id="section-7.1">
@@ -1847,7 +1969,8 @@ SignWithLabel(., "SlimKeyPackageBatchTBS", SlimKeyPackageBatchTBS)
 </div>
 <p id="section-7.1-10">where <code>version</code> and <code>cipher_suite</code> are taken from <code>outer_key_package</code>,
 <code>signature_key_ref</code> is taken from <code>leaf_node_tbs</code>, <code>tree_size</code> is taken from
-<code>proof</code>, and <code>merkle_root</code> is the Merkle root computed as above.<a href="#section-7.1-10" class="pilcrow">¶</a></p>
+the proof in <code>leaf_node</code>, and <code>merkle_root</code> is the Merkle root computed as
+above.<a href="#section-7.1-10" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="outer-key-package-hash">
@@ -1902,10 +2025,11 @@ private key corresponding to <code>signature_key_ref</code>, and compute the
 SignatureRef over the raw signature bytes.<a href="#section-7.3-2.5.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-7.3-2.6">
-            <p id="section-7.3-2.6.1">Emit each SlimKeyPackage with its leaf's inclusion proof and the common
-SignatureRef, optionally accompanied by a
-LargeObjectCarrier holding the referenced HPKEPublicKey and the large objects
-referenced by the SlimLeafNode and the batch signature bytes.<a href="#section-7.3-2.6.1" class="pilcrow">¶</a></p>
+            <p id="section-7.3-2.6.1">Emit each SlimKeyPackage with the common SignatureRef in
+<code>leaf_node.signature</code> and the leaf's inclusion proof in <code>leaf_node.proof</code>,
+optionally accompanied by a LargeObjectCarrier holding the referenced
+HPKEPublicKey and the large objects referenced by the SlimLeafNode and the
+batch signature bytes.<a href="#section-7.3-2.6.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
 <p id="section-7.3-3">A recipient processes a SlimKeyPackage like a KeyPackage with the following
@@ -1922,18 +2046,23 @@ exceptions:<a href="#section-7.3-3" class="pilcrow">¶</a></p>
 OuterKeyPackageHash component.<a href="#section-7.3-4.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-7.3-4.4">
-            <p id="section-7.3-4.4.1">The recipient resolves the batch signature bytes using <code>signature_ref</code> from
-inside the <code>leaf_node</code>, computes SignatureRef over those bytes, and verifies
-that it equals <code>signature_ref</code>.<a href="#section-7.3-4.4.1" class="pilcrow">¶</a></p>
+            <p id="section-7.3-4.4.1">The SlimLeafNode <span class="bcp14">MUST</span> have <code>leaf_node_source = key_package</code> and therefore
+carry a <code>proof</code> field.<a href="#section-7.3-4.4.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-7.3-4.5">
-            <p id="section-7.3-4.5.1">The recipient verifies the Merkle inclusion proof, reconstructs the
-SlimKeyPackageBatchTBS, resolves the SignaturePublicKey corresponding to
-<code>signature_key_ref</code>, and verifies the raw batch signature bytes identified by
-<code>signature_ref</code> using VerifyWithLabel label "SlimKeyPackageBatchTBS".<a href="#section-7.3-4.5.1" class="pilcrow">¶</a></p>
+            <p id="section-7.3-4.5.1">The recipient resolves the batch signature bytes using <code>leaf_node.signature</code>,
+computes SignatureRef over those bytes, and verifies that it equals
+<code>leaf_node.signature</code>.<a href="#section-7.3-4.5.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-7.3-4.6">
-            <p id="section-7.3-4.6.1">All large-object <code>*Ref</code> values are resolved per <a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-7.3-4.6.1" class="pilcrow">¶</a></p>
+            <p id="section-7.3-4.6.1">The recipient verifies the Merkle inclusion proof in <code>leaf_node.proof</code>,
+reconstructs the SlimKeyPackageBatchTBS, resolves the SignaturePublicKey
+corresponding to <code>signature_key_ref</code>, and verifies the raw batch signature
+bytes identified by <code>leaf_node.signature</code> using VerifyWithLabel label
+"SlimKeyPackageBatchTBS".<a href="#section-7.3-4.6.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.3-4.7">
+            <p id="section-7.3-4.7.1">All large-object <code>*Ref</code> values are resolved per <a href="#large-object-retrieval" class="auto internal xref">Section 6</a>.<a href="#section-7.3-4.7.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
@@ -2710,12 +2839,16 @@ ciphersuites whose hash functions differ.<a href="#section-15-4" class="pilcrow"
 LeafNode signatures with one signature over a Merkle root. A recipient <span class="bcp14">MUST</span>
 verify both the Merkle inclusion proof and the batch signature before treating
 the SlimLeafNodeTBS as authenticated. The signed SlimKeyPackageBatchTBS binds
-the ciphersuite, tree size, Merkle root, and SignaturePublicKeyRef. Together
-with the SignWithLabel label and the Merkle leaf and parent hash labels, this
-prevents a valid batch signature from being replayed across protocols,
-ciphersuites, or signing keys.<a href="#section-15-5" class="pilcrow">¶</a></p>
-<p id="section-15-6">All SlimKeyPackages that share the same <code>batch_signature_ref</code> are linkable as
-members of the same publication batch. Deployments that consider this
+the protocol version, ciphersuite, tree size, Merkle root, and
+SignaturePublicKeyRef. Together with the SignWithLabel label and the Merkle leaf
+and parent hash labels, this prevents a valid batch signature from being
+replayed across protocols, ciphersuites, or signing keys. The Merkle proof is
+carried in the SlimLeafNode only for <code>leaf_node_source = key_package</code>, so group
+members that later validate the ratchet tree can verify the authenticity of the
+leaf without having received the original SlimKeyPackage.<a href="#section-15-5" class="pilcrow">¶</a></p>
+<p id="section-15-6">All SlimKeyPackages whose key-package SlimLeafNodes share the same <code>signature</code>
+field are linkable as members of the same publication batch. Deployments that
+consider this
 linkability sensitive can reduce batch sizes or publish independently signed
 batches.<a href="#section-15-6" class="pilcrow">¶</a></p>
 <p id="section-15-7">SlimWelcome (<a href="#slim-welcome" class="auto internal xref">Section 8</a>) introduces two confidentiality changes
@@ -2851,25 +2984,45 @@ Formats" registry defined in <span><a href="https://rfc-editor.org/rfc/rfc9420#s
 </div>
 </section>
 </div>
-<div id="sec-normative-references">
+<div id="sec-combined-references">
 <section id="section-17">
-      <h2 id="name-normative-references">
-<a href="#section-17" class="section-number selfRef">17. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+      <h2 id="name-references">
+<a href="#section-17" class="section-number selfRef">17. </a><a href="#name-references" class="section-name selfRef">References</a>
       </h2>
+<div id="sec-normative-references">
+<section id="section-17.1">
+        <h3 id="name-normative-references">
+<a href="#section-17.1" class="section-number selfRef">17.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+        </h3>
 <dl class="references">
 <dt id="RFC2119">[RFC2119]</dt>
-      <dd>
+        <dd>
 <span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc2119">https://www.rfc-editor.org/rfc/rfc2119</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC8174">[RFC8174]</dt>
-      <dd>
+        <dd>
 <span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8174">https://www.rfc-editor.org/rfc/rfc8174</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC9420">[RFC9420]</dt>
-    <dd>
+      <dd>
 <span class="refAuthor">Barnes, R.</span>, <span class="refAuthor">Beurdouche, B.</span>, <span class="refAuthor">Robert, R.</span>, <span class="refAuthor">Millican, J.</span>, <span class="refAuthor">Omara, E.</span>, and <span class="refAuthor">K. Cohn-Gordon</span>, <span class="refTitle">"The Messaging Layer Security (MLS) Protocol"</span>, <span class="seriesInfo">RFC 9420</span>, <span class="seriesInfo">DOI 10.17487/RFC9420</span>, <time datetime="2023-07" class="refDate">July 2023</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9420">https://www.rfc-editor.org/rfc/rfc9420</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 </dl>
+</section>
+</div>
+<div id="sec-informative-references">
+<section id="section-17.2">
+        <h3 id="name-informative-references">
+<a href="#section-17.2" class="section-number selfRef">17.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
+        </h3>
+<dl class="references">
+<dt id="I-D.ietf-mls-extensions">[I-D.ietf-mls-extensions]</dt>
+      <dd>
+<span class="refAuthor">Robert, R.</span>, <span class="refTitle">"The Messaging Layer Security (MLS) Extensions"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-mls-extensions-09</span>, <time datetime="2026-03-02" class="refDate">2 March 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-mls-extensions-09">https://datatracker.ietf.org/doc/html/draft-ietf-mls-extensions-09</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
 </section>
 </div>
 <div id="acknowledgments">

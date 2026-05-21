@@ -5,7 +5,7 @@
 Messaging Layer Security                                       R. Robert
 Internet-Draft                                                K. Kohbrok
 Intended status: Informational                               Phoenix R&D
-Expires: 21 November 2026                                    20 May 2026
+Expires: 22 November 2026                                    21 May 2026
 
 
                                 SlimMLS
@@ -59,7 +59,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 21 November 2026.
+   This Internet-Draft will expire on 22 November 2026.
 
 Copyright Notice
 
@@ -82,7 +82,9 @@ Table of Contents
    3.  Overview
    4.  Reference Computation
    5.  SlimMLS Structs
-     5.1.  SlimGroupInfo
+     5.1.  SlimLeafNode
+     5.2.  SlimParentNode and SlimParentHashInput
+     5.3.  SlimGroupInfo
    6.  Large Object Retrieval
      6.1.  Large Object Carrier
    7.  SlimKeyPackage
@@ -112,7 +114,9 @@ Table of Contents
    16. IANA Considerations
      16.1.  SlimMLS MLS Extension Types
      16.2.  SlimMLS Wire Formats
-   17. Normative References
+   17. References
+     17.1.  Normative References
+     17.2.  Informative References
    Acknowledgments
    Authors' Addresses
 
@@ -203,8 +207,12 @@ Table of Contents
 
    All new references are computed in the same style as KeyPackageRef in
    Section 5.2 of [RFC9420], i.e., using RefHash instantiated with the
-   group's ciphersuite hash function and a label unique to the
-   referenced object type.  Inputs are TLS-encoded per [RFC9420].
+   relevant ciphersuite hash function and a label unique to the
+   referenced object type.  Inputs are TLS-encoded per [RFC9420].  For
+   group-bound structures, the relevant ciphersuite is the group's
+   ciphersuite.  For references contained in or computed over a
+   SlimKeyPackage, the relevant ciphersuite is
+   outer_key_package.cipher_suite of that SlimKeyPackage.
 
    The following reference types are defined:
 
@@ -353,6 +361,121 @@ Table of Contents
 
                                  Table 2
 
+   The exact TLS presentation of each remaining slim struct is obtained
+   by mechanical substitution against [RFC9420] and is not repeated
+   here.
+
+   [[TODO: provide explicit TLS presentations for each slim variant in a
+   later revision.]]
+
+5.1.  SlimLeafNode
+
+   SlimLeafNode replaces LeafNode.  SlimLeafNodeTBS replaces the
+   LeafNodeTBS input defined in Section 7.2 of [RFC9420].
+
+   SlimMLS uses the app_data_dictionary extension specified in
+   Section 7.2.1 of [I-D.ietf-mls-extensions] to carry SlimMLS-specific
+   components in a SlimLeafNode's extensions field.
+
+struct {
+  opaque sibling_hash<V>;
+} SlimKeyPackageMerkleProofNode;
+
+struct {
+  uint32                         leaf_index;
+  uint32                         tree_size;
+  SlimKeyPackageMerkleProofNode  path<V>;
+} SlimKeyPackageMerkleProof;
+
+struct {
+  HPKEPublicKeyRef      encryption_key_ref;
+  SignaturePublicKeyRef signature_key_ref;
+  CredentialRef         credential_ref;
+  Capabilities          capabilities;
+
+  LeafNodeSource leaf_node_source;
+  select (SlimLeafNodeTBS.leaf_node_source) {
+    case key_package:
+      Lifetime lifetime;
+
+    case update:
+      struct{};
+
+    case commit:
+      opaque parent_hash<V>;
+  };
+
+  Extension extensions<V>;
+
+  select (SlimLeafNodeTBS.leaf_node_source) {
+    case key_package:
+      struct{};
+
+    case update:
+      opaque group_id<V>;
+      uint32 leaf_index;
+
+    case commit:
+      opaque group_id<V>;
+      uint32 leaf_index;
+  };
+} SlimLeafNodeTBS;
+
+struct {
+  HPKEPublicKeyRef      encryption_key_ref;
+  SignaturePublicKeyRef signature_key_ref;
+  CredentialRef         credential_ref;
+  Capabilities          capabilities;
+
+  LeafNodeSource leaf_node_source;
+  select (SlimLeafNode.leaf_node_source) {
+    case key_package:
+      Lifetime lifetime;
+
+    case update:
+      struct{};
+
+    case commit:
+      opaque parent_hash<V>;
+  };
+
+  Extension extensions<V>;
+
+  /*
+    For key_package leaves, this is a SignatureRef to the batch signature.
+    For update and commit leaves, this is a SignatureRef to the normal
+    SlimLeafNode signature over SlimLeafNodeTBS.
+  */
+  SignatureRef signature;
+
+  select (SlimLeafNode.leaf_node_source) {
+    case key_package:
+      SlimKeyPackageMerkleProof proof;
+
+    case update:
+      struct{};
+
+    case commit:
+      struct{};
+  };
+} SlimLeafNode;
+
+   The proof field is present only when leaf_node_source = key_package.
+   It is not part of SlimLeafNodeTBS to avoid a circulare dependency.
+   Update and commit leaf nodes do not carry this field.
+
+   For leaf_node_source = key_package, the signature field references
+   the SlimKeyPackage batch signature and validation MUST verify both
+   this signature and the embedded proof as described in Section 7.1.
+   This allows clients to validate a key-package SlimLeafNode even when
+   it appears in a ratchet tree without the enclosing SlimKeyPackage.
+   For leaf nodes whose source is update or commit, the signature field
+   is the normal SlimLeafNode signature over SlimLeafNodeTBS, verified
+   as in Section 7.3 of [RFC9420] after applying the slim substitutions
+   in this document.
+
+5.2.  SlimParentNode and SlimParentHashInput
+
    The following slim tree structures are used in tree-hash and parent-
    hash computations:
 
@@ -371,13 +494,7 @@ Table of Contents
    SlimParentNode replaces ParentNode.  SlimParentHashInput replaces the
    ParentHashInput defined in Section 7.9 of [RFC9420].
 
-   The exact TLS presentation of each other slim struct is obtained by
-   mechanical substitution against [RFC9420] and is not repeated here.
-
-   [[TODO: provide explicit TLS presentations for each slim variant in a
-   later revision.]]
-
-5.1.  SlimGroupInfo
+5.3.  SlimGroupInfo
 
    SlimGroupInfo is the slim replacement for the [RFC9420] GroupInfo
    struct.  It uses the same fields and verification rules as GroupInfo,
@@ -498,14 +615,13 @@ Table of Contents
    format message carrying an [RFC9420] KeyPackage in the context of a
    group with the slim_mls extension.
 
-   SlimLeafNodeTBS denotes the LeafNodeTBS input defined by [RFC9420]
-   after applying the slim substitutions in Section 5.  It is the
-   unsigned part of a SlimLeafNode and carries no signature field.
+   SlimLeafNodeTBS is the unsigned part of a SlimLeafNode.  It carries
+   neither the signature field nor the key-package Merkle proof.
 
    A SlimKeyPackage is partitioned into an OuterSlimKeyPackage (the
-   fields of a KeyPackage other than the LeafNode and signature), a
-   SlimLeafNodeTBS, a reference to the detached batch signature, and a
-   Merkle inclusion proof:
+   fields of a KeyPackage other than the LeafNode and signature) and a
+   SlimLeafNode.  The SlimLeafNode carries the SignatureRef of the
+   detached batch signature and its Merkle inclusion proof:
 
    struct {
      ProtocolVersion  version;
@@ -513,16 +629,6 @@ Table of Contents
      HPKEPublicKeyRef init_key_ref;
      Extension        extensions<V>;
    } OuterSlimKeyPackage;
-
-   struct {
-     opaque sibling_hash<V>;
-   } SlimKeyPackageMerkleProofNode;
-
-   struct {
-     uint32                         leaf_index;
-     uint32                         tree_size;
-     SlimKeyPackageMerkleProofNode  path<V>;
-   } SlimKeyPackageMerkleProof;
 
    struct {
      ProtocolVersion       version;
@@ -535,18 +641,18 @@ Table of Contents
    struct {
      OuterSlimKeyPackage              outer_key_package;
      SlimLeafNode                     leaf_node;
-     SlimKeyPackageMerkleProof        proof;
    } SlimKeyPackage;
 
    A SlimKeyPackage carries no outer signature and no per-package
    LeafNode signature.  Authenticity of outer_key_package is provided by
    an OuterKeyPackageHash component (Section 7.2) placed in the
    SlimLeafNode's app_data_dictionary extension.  Authenticity of the
-   SlimLeafNode, including this component, is provided by the batch
-   signature inside the SlimLeafNode and the Merkle inclusion proof.
+   SlimLeafNodeTBS, including this component, is provided by the batch
+   signature referenced by leaf_node.signature and the Merkle inclusion
+   proof in leaf_node.proof.
 
    The HPKEPublicKey corresponding to init_key_ref, together with any
-   large objects referenced by the SlimLeafNodeTBS, is resolved per
+   large objects referenced by the SlimLeafNode, is resolved per
    Section 6.
 
 7.1.  KeyPackage Batch Merkle Tree
@@ -596,7 +702,8 @@ Table of Contents
 
    where version and cipher_suite are taken from outer_key_package,
    signature_key_ref is taken from leaf_node_tbs, tree_size is taken
-   from proof, and merkle_root is the Merkle root computed as above.
+   from the proof in leaf_node, and merkle_root is the Merkle root
+   computed as above.
 
 7.2.  OuterKeyPackageHash component
 
@@ -639,11 +746,11 @@ Table of Contents
        signature private key corresponding to signature_key_ref, and
        compute the SignatureRef over the raw signature bytes.
 
-   6.  Emit each SlimKeyPackage with its leaf's inclusion proof and the
-       common SignatureRef, optionally accompanied by a
-       LargeObjectCarrier holding the referenced HPKEPublicKey and the
-       large objects referenced by the SlimLeafNode and the batch
-       signature bytes.
+   6.  Emit each SlimKeyPackage with the common SignatureRef in
+       leaf_node.signature and the leaf's inclusion proof in
+       leaf_node.proof, optionally accompanied by a LargeObjectCarrier
+       holding the referenced HPKEPublicKey and the large objects
+       referenced by the SlimLeafNode and the batch signature bytes.
 
    A recipient processes a SlimKeyPackage like a KeyPackage with the
    following exceptions:
@@ -655,15 +762,19 @@ Table of Contents
    *  The SlimLeafNode MUST contain an app_data_dictionary extension
       with a valid OuterKeyPackageHash component.
 
-   *  The recipient resolves the batch signature bytes using
-      signature_ref from inside the leaf_node, computes SignatureRef
-      over those bytes, and verifies that it equals signature_ref.
+   *  The SlimLeafNode MUST have leaf_node_source = key_package and
+      therefore carry a proof field.
 
-   *  The recipient verifies the Merkle inclusion proof, reconstructs
-      the SlimKeyPackageBatchTBS, resolves the SignaturePublicKey
-      corresponding to signature_key_ref, and verifies the raw batch
-      signature bytes identified by signature_ref using VerifyWithLabel
-      label "SlimKeyPackageBatchTBS".
+   *  The recipient resolves the batch signature bytes using
+      leaf_node.signature, computes SignatureRef over those bytes, and
+      verifies that it equals leaf_node.signature.
+
+   *  The recipient verifies the Merkle inclusion proof in
+      leaf_node.proof, reconstructs the SlimKeyPackageBatchTBS, resolves
+      the SignaturePublicKey corresponding to signature_key_ref, and
+      verifies the raw batch signature bytes identified by
+      leaf_node.signature using VerifyWithLabel label
+      "SlimKeyPackageBatchTBS".
 
    *  All large-object *Ref values are resolved per Section 6.
 
@@ -1382,16 +1493,20 @@ struct {
    LeafNode signatures with one signature over a Merkle root.  A
    recipient MUST verify both the Merkle inclusion proof and the batch
    signature before treating the SlimLeafNodeTBS as authenticated.  The
-   signed SlimKeyPackageBatchTBS binds the ciphersuite, tree size,
-   Merkle root, and SignaturePublicKeyRef.  Together with the
-   SignWithLabel label and the Merkle leaf and parent hash labels, this
-   prevents a valid batch signature from being replayed across
-   protocols, ciphersuites, or signing keys.
+   signed SlimKeyPackageBatchTBS binds the protocol version,
+   ciphersuite, tree size, Merkle root, and SignaturePublicKeyRef.
+   Together with the SignWithLabel label and the Merkle leaf and parent
+   hash labels, this prevents a valid batch signature from being
+   replayed across protocols, ciphersuites, or signing keys.  The Merkle
+   proof is carried in the SlimLeafNode only for leaf_node_source =
+   key_package, so group members that later validate the ratchet tree
+   can verify the authenticity of the leaf without having received the
+   original SlimKeyPackage.
 
-   All SlimKeyPackages that share the same batch_signature_ref are
-   linkable as members of the same publication batch.  Deployments that
-   consider this linkability sensitive can reduce batch sizes or publish
-   independently signed batches.
+   All SlimKeyPackages whose key-package SlimLeafNodes share the same
+   signature field are linkable as members of the same publication
+   batch.  Deployments that consider this linkability sensitive can
+   reduce batch sizes or publish independently signed batches.
 
    SlimWelcome (Section 8) introduces two confidentiality changes
    relative to the [RFC9420] Welcome:
@@ -1465,7 +1580,9 @@ struct {
 
    (Values are SlimMLS's suggested allocations.  IANA may pick others.)
 
-17.  Normative References
+17.  References
+
+17.1.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
@@ -1480,6 +1597,15 @@ struct {
               Omara, E., and K. Cohn-Gordon, "The Messaging Layer
               Security (MLS) Protocol", RFC 9420, DOI 10.17487/RFC9420,
               July 2023, <https://www.rfc-editor.org/rfc/rfc9420>.
+
+17.2.  Informative References
+
+   [I-D.ietf-mls-extensions]
+              Robert, R., "The Messaging Layer Security (MLS)
+              Extensions", Work in Progress, Internet-Draft, draft-ietf-
+              mls-extensions-09, 2 March 2026,
+              <https://datatracker.ietf.org/doc/html/draft-ietf-mls-
+              extensions-09>.
 
 Acknowledgments
 
