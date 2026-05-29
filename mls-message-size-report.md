@@ -1,6 +1,6 @@
 # SlimMLS message size estimates for a 100-member group
 
-Date: 2026-04-28
+Date: 2026-05-29
 
 This report estimates TLS-encoded wire sizes for SlimMLS Welcomes and SlimMLS
 public commits with update paths in a 100-member group. It uses the
@@ -50,6 +50,9 @@ For ML-KEM1024 and ML-DSA87, I used:
   `SlimWelcome.secrets` to one `SlimEncryptedGroupSecrets` entry and uses the
   `leaf_node_index` recipient identifier.
 - The Welcome `group_info` is the plaintext variant, populated by the DS.
+- The carrier model is basic-processing delivery: it includes objects needed to
+  validate and process the Welcome or Commit, but omits HPKE public keys that
+  are only needed to construct a later update path.
 - The Welcome tree has one commit-sourced leaf for the committer and 99 minimal
   key-package-sourced leaves.
 - The commit is a member PublicMessage commit with an update path and no
@@ -59,6 +62,12 @@ For ML-KEM1024 and ML-DSA87, I used:
 - The commit uses the SlimMLS single-signature construction: the framing
   signature is absent, the confirmation tag is present, and the commit leaf
   contains an `OuterUpdateHash` component.
+- SlimLeafNode and plaintext SlimGroupInfo signatures are carried as
+  `SignatureRef` values in the message. The raw signature bytes needed for
+  validation are included in the Large Object Carrier.
+- Key-package SlimLeafNodes use the minimum SlimKeyPackage batch size of 1, so
+  their Merkle proofs contain `leaf_index`, `tree_size`, and an empty proof
+  path.
 - The `app_data_dictionary` TLS syntax is not yet specified in the SlimMLS
   draft. I modeled the required `OuterUpdateHash` as one dictionary component:
   `uint16 component_id; opaque component_data<V>;`, wrapped in one LeafNode
@@ -78,15 +87,15 @@ path nodes.
 
 ## Summary
 
-All numbers are bytes. "Message" is the MLSMessage carrying SlimWelcome or
-SlimPublicCommitMessage. "Carrier" is the raw SlimMLS LargeObjectCarrier
-payload, without any application or DS wrapper.
+All numbers are bytes. "Message" is the MLSMessage carrying SlimWelcome or a
+SlimPublicMessage with a SlimCommit. "Carrier" is the raw SlimMLS
+LargeObjectCarrier payload, without any application or DS wrapper.
 
 | Ciphersuite | Welcome message | Welcome carrier | Welcome total | DS-to-member commit message | DS-to-member commit carrier | DS-to-member commit total | Sender-to-DS commit total | Commit aggregate for 99 recipients |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519` | 26,840 | 5,206 | 32,046 | 632 | 87 | 719 | 1,674 | 72,855 |
-| `MLS_128_MLKEM768X25519_AES128GCM_SHA256_Ed25519` | 27,929 | 5,206 | 33,135 | 632 | 1,176 | 1,808 | 18,777 | 197,769 |
-| `MLS_256_MLKEM1024_AES256GCM_SHA384_MLDSA87` | 497,320 | 261,308 | 758,628 | 5,435 | 1,641 | 7,076 | 29,747 | 730,271 |
+| `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519` | 28,725 | 11,874 | 40,599 | 601 | 155 | 756 | 1,711 | 76,555 |
+| `MLS_128_MLKEM768X25519_AES128GCM_SHA256_Ed25519` | 29,814 | 11,874 | 41,688 | 601 | 1,244 | 1,845 | 18,814 | 201,469 |
+| `MLS_256_MLKEM1024_AES256GCM_SHA384_MLDSA87` | 41,526 | 728,841 | 770,367 | 857 | 6,272 | 7,129 | 29,800 | 735,571 |
 
 `Commit aggregate for 99 recipients` is:
 
@@ -132,25 +141,27 @@ The delivered Welcome is an MLSMessage with SlimMLS wire format
 - `slim_ratchet_tree`: 100 SlimLeafNodes and 99 SlimParentNodes. Slim nodes
   contain references to HPKE public keys, signature public keys, and
   credentials, not the objects themselves.
-- Carrier: 100 signature public keys and 100 basic credentials. HPKE public
-  keys are not sent in the Welcome carrier because the joiner can validate the
-  slim tree and GroupInfo using references and can fetch HPKE public keys later
-  when it needs to encrypt to a resolution node.
+- Carrier: 100 signature public keys, 100 basic credentials, and 101 raw
+  signatures: one for the plaintext SlimGroupInfo and one for each SlimLeafNode
+  in the tree. HPKE public keys are not sent in the Welcome carrier because the
+  joiner can validate the slim tree and GroupInfo using references and can fetch
+  HPKE public keys later when it needs to encrypt to a resolution node.
 
-The large ML-DSA87 Welcome is dominated by the 100 ML-DSA87 LeafNode signatures
-inside the slim tree and the 100 ML-DSA87 signature public keys in the carrier.
-SlimMLS can replace signature public keys with references inside GroupInfo, but
-it cannot remove the LeafNode signatures themselves.
+The large ML-DSA87 Welcome is dominated by the 100 ML-DSA87 signature public
+keys and 101 ML-DSA87 raw signatures in the carrier. The SlimMLS message itself
+contains compact `SignatureRef` values, but the receiver still needs the raw
+signature bytes to validate the SlimGroupInfo and SlimLeafNodes unless those
+bytes are already cached or fetched through another retrieval channel.
 
 ## Commit: what is sent
 
 The sender uploads an MLSMessage with SlimMLS wire format
-`mls_slim_public_commit`. It contains:
+`mls_slim_public_message`. It contains:
 
-- `SlimCommitFramedContent`: group id, epoch, member sender, empty
+- `SlimFramedContent`: group id, epoch, member sender, empty
   authenticated data, content type `commit`, and a `SlimCommit`.
 - `SlimCommit`: empty proposal list and the committer's new SlimLeafNode.
-- `SlimCommitFramedContentAuthData`: absent framing signature plus the normal
+- `SlimFramedContentAuthData`: absent framing signature plus the normal
   confirmation tag.
 - PublicMessage membership tag.
 - `SlimUpdatePath`: 7 path nodes in this 100-member tree case. Sender-to-DS
@@ -158,21 +169,24 @@ The sender uploads an MLSMessage with SlimMLS wire format
   all 7 HPKEPublicKeyRefs but reduces HPKECiphertextRefs to the one ciphertext
   the recipient needs.
 - Sender-to-DS carrier: 8 HPKE public keys, namely the new leaf key plus 7 path
-  node keys, and 7 HPKE ciphertexts.
-- DS-to-member carrier: one HPKE ciphertext. It omits unchanged signature public
-  key and credential objects, and it omits HPKE public keys that the recipient
-  does not need immediately.
+  node keys, 7 HPKE ciphertexts, and the raw SlimLeafNode signature referenced
+  by the commit leaf.
+- DS-to-member carrier: one HPKE ciphertext and the raw SlimLeafNode signature.
+  It omits unchanged signature public key and credential objects, and it omits
+  HPKE public keys that the recipient does not need immediately.
 
 This is where the DS optimization matters most. The slim signed commit message
 is identical for the MTI and MLKEM768X25519 Ed25519 ciphersuites; only the
 carrier grows because the HPKE ciphertext and path public keys are larger. For
-ML-KEM1024 with ML-DSA87, the message itself is larger because the commit
-contains a new ML-DSA87-signed SlimLeafNode.
+ML-KEM1024 with ML-DSA87, the message body grows with the larger hash-reference
+and MAC sizes, while the raw ML-DSA87 SlimLeafNode signature is accounted for in
+the carrier.
 
 ## Sensitivity
 
-The estimates are exact for the assumptions above, but they are not universal
-MLS constants. The largest variables are:
+The estimates are deterministic for the assumptions and provisional
+`app_data_dictionary` encoding above, but they are not universal MLS constants.
+The largest variables are:
 
 - X.509 credentials instead of 16-byte basic credentials.
 - Cached signature public keys or credentials on the joining client.
@@ -183,4 +197,3 @@ MLS constants. The largest variables are:
 - A commit that rotates the signature key. That disables the single-signature
   optimization and requires sending the new signature public key, and likely a
   credential, in the carrier.
-
