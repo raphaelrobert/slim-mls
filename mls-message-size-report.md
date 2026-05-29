@@ -4,7 +4,7 @@ Date: 2026-04-28
 
 This report estimates TLS-encoded wire sizes for SlimMLS Welcomes and SlimMLS
 public commits with update paths in a 100-member group. It uses the
-optimizations described in `draft-robert-mls-slimmls.md`: SlimWelcomes with
+optimizations described in `draft-robert-mls-slim.md`: SlimWelcomes with
 per-recipient secrets, plaintext GroupInfo supplied by a stateful DS,
 SlimUpdatePath split delivery, hash references for large objects, Large Object
 Carriers, cached unchanged signature keys and credentials, and delayed fetching
@@ -12,7 +12,7 @@ of large objects that are not needed immediately.
 
 ## Sources
 
-- SlimMLS local draft: `draft-robert-mls-slimmls.md`
+- SlimMLS local draft: `draft-robert-mls-slim.md`
 - MLS RFC 9420: https://datatracker.ietf.org/doc/html/rfc9420
 - MLS PQ ciphersuite draft, current revision checked here:
   `draft-ietf-mls-pq-ciphersuites-04`, published 2026-03-19:
