@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2026-05-28T00:48:32.675505+00:00",
+  "timestamp": "2026-05-31T00:55:55.469626+00:00",
   "repo": "raphaelrobert/slim-mls",
   "labels": [
     {
@@ -63,7 +63,7 @@
       "labels": [],
       "body": "",
       "createdAt": "2026-05-19T11:57:10Z",
-      "updatedAt": "2026-05-20T12:25:12Z",
+      "updatedAt": "2026-05-29T10:28:59Z",
       "baseRepository": "raphaelrobert/slim-mls",
       "baseRefName": "main",
       "baseRefOid": "66c539bf5da48fc4ce2c540372597f583b7a230a",
@@ -125,7 +125,7 @@
       "labels": [],
       "body": "",
       "createdAt": "2026-05-19T11:57:29Z",
-      "updatedAt": "2026-05-20T13:52:50Z",
+      "updatedAt": "2026-05-29T10:02:32Z",
       "baseRepository": "raphaelrobert/slim-mls",
       "baseRefName": "main",
       "baseRefOid": "639e230e00323bc265a0f7053e25e1a0255bd0b3",
@@ -167,7 +167,7 @@
       "labels": [],
       "body": "",
       "createdAt": "2026-05-19T12:07:12Z",
-      "updatedAt": "2026-05-20T13:56:42Z",
+      "updatedAt": "2026-05-29T10:02:33Z",
       "baseRepository": "raphaelrobert/slim-mls",
       "baseRefName": "main",
       "baseRefOid": "7b9499127780cc6e69442a81b9a2ea914d143a54",
@@ -209,7 +209,7 @@
       "labels": [],
       "body": "",
       "createdAt": "2026-05-20T08:36:53Z",
-      "updatedAt": "2026-05-20T14:00:17Z",
+      "updatedAt": "2026-05-29T10:02:34Z",
       "baseRepository": "raphaelrobert/slim-mls",
       "baseRefName": "main",
       "baseRefOid": "933f60dde89519e581b60184364659b32ccf1005",
@@ -251,7 +251,7 @@
       "labels": [],
       "body": "",
       "createdAt": "2026-05-20T09:56:33Z",
-      "updatedAt": "2026-05-20T13:57:11Z",
+      "updatedAt": "2026-05-29T10:02:31Z",
       "baseRepository": "raphaelrobert/slim-mls",
       "baseRefName": "konrad/struct_overhaul",
       "baseRefOid": "4605e2b0e8db38bc7fef8708388d2f2a59fb67fc",
@@ -285,6 +285,48 @@
               "updatedAt": "2026-05-20T10:47:45Z"
             }
           ]
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "id": "PR_kwDOSNwvCs7gmniD",
+      "title": "renaming",
+      "url": "https://github.com/raphaelrobert/slim-mls/pull/6",
+      "state": "MERGED",
+      "author": "raphaelrobert",
+      "authorAssociation": "OWNER",
+      "assignees": [],
+      "labels": [],
+      "body": "",
+      "createdAt": "2026-05-29T10:22:54Z",
+      "updatedAt": "2026-05-29T10:29:01Z",
+      "baseRepository": "raphaelrobert/slim-mls",
+      "baseRefName": "main",
+      "baseRefOid": "3d890fdc1b910bdef7d7f0040aca9a3aa353564e",
+      "headRepository": "raphaelrobert/slim-mls",
+      "headRefName": "raphael/renaming",
+      "headRefOid": "5dfce42289fe11ab112c2ca33f11834688a4b1aa",
+      "closedAt": "2026-05-29T10:24:37Z",
+      "mergedAt": "2026-05-29T10:24:37Z",
+      "mergedBy": "raphaelrobert",
+      "mergeCommit": {
+        "oid": "af4a398763239a9fdf19948b1e96cb7cbeb47393"
+      },
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOSNwvCs8AAAABBZZLcg",
+          "commit": {
+            "abbreviatedOid": "5dfce42"
+          },
+          "author": "kkohbrok",
+          "authorAssociation": "COLLABORATOR",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2026-05-29T10:24:19Z",
+          "updatedAt": "2026-05-29T10:24:19Z",
+          "comments": []
         }
       ]
     }
