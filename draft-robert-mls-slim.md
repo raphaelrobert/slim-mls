@@ -77,19 +77,20 @@ or an application-specific retrieval channel. Recipients verify each object by
 recomputing the reference before using it.
 
 The largest benefits come from deployments where the DS is an independent
-service that can assist clients. In such deployments, the DS can omit objects a
-recipient already has, reduce update path ciphertexts to the subset each
-recipient needs, and supply GroupInfo separately from a SlimWelcome. Deployments
-without an assisting DS still benefit from smaller authenticated state, local
-caches of credentials and keys, and the ability to defer fetching large objects
-until they are needed.
+service that can assist clients. In such deployments, the DS can omit
+referenced objects a recipient already has, deliver only the update path
+ciphertext objects each recipient needs, and supply GroupInfo separately from a
+SlimWelcome. Deployments without an assisting DS still benefit from smaller
+authenticated state, local caches of credentials and keys, and the ability to
+defer fetching large objects until they are needed.
 
 The main protocol changes are:
 
 * SlimKeyPackages replace KeyPackages and batch the signatures needed to
   authenticate multiple LeafNodes.
-* SlimCommits carry commit content separately from update path delivery data, so
-  the Delivery Service can deliver only the ciphertexts each recipient needs.
+* SlimCommits preserve the RFC 9420 Commit and UpdatePath structure, replace
+  large path objects with hash references, and save one signature when a member
+  Commit contains a path that does not update the sender's signature key.
 * SlimWelcomes adapt Welcome messages to slim KeyPackage references and
   server-assisted GroupInfo delivery.
 * Slim message framing and SlimGroupInfo define when signatures are represented
@@ -205,13 +206,11 @@ depends on whether the signature is carried inside an encrypted envelope:
 When either signature is carried inside an encrypted envelope, it MUST use the
 `signature` variant.
 
-Welcome, KeyPackage, and Commit are not derived by mechanical substitution.
-They are replaced by the SlimWelcome struct ({{slim-welcome}}), the
-SlimKeyPackage struct ({{slim-key-package}}), and the SlimCommit struct
-({{slim-commit}}) respectively. As a consequence, the UpdatePath struct does not
-appear in a SlimMLS group. Its contents are split between SlimCommit (which
-carries the committer's SlimLeafNode) and SlimUpdatePath (which carries the path
-nodes).
+Welcome, KeyPackage, Commit, and UpdatePath are not derived solely by
+mechanical substitution. They are replaced by the SlimWelcome struct
+({{slim-welcome}}), the SlimKeyPackage struct ({{slim-key-package}}), the
+SlimCommit struct, and the SlimUpdatePath struct ({{slim-commit}}),
+respectively.
 
 In a SlimMLS group, the slim struct is sent on the wire wherever {{!RFC9420}}
 would specify the original struct. Validation rules of {{!RFC9420}} apply in
@@ -230,6 +229,8 @@ nested struct.
 | LeafNode                  | HPKEPublicKey, SignaturePublicKey, Credential, signature  | HPKEPublicKeyRef, SignaturePublicKeyRef, CredentialRef, SignatureRef |
 | ParentNode                | HPKEPublicKey                                             | HPKEPublicKeyRef                                    |
 | ParentHashInput           | HPKEPublicKey                                             | HPKEPublicKeyRef                                    |
+| Commit                    | UpdatePath                                                | SlimUpdatePath                                      |
+| UpdatePath                | LeafNode, UpdatePathNode                                  | SlimLeafNode, SlimUpdatePathNode                    |
 | UpdatePathNode            | HPKEPublicKey, HPKECiphertext (vector)  | HPKEPublicKeyRef, HPKECiphertextRef (vector)            |
 | Signature-bearing structs except SignatureOrRef cases | signature                         | SignatureRef                                       |
 | Add proposal              | KeyPackage                                                | SlimKeyPackage                                     |
@@ -408,10 +409,10 @@ so that the raw signature is protected by the SlimWelcome encryption.
 
 # Large Object Retrieval {#large-object-retrieval}
 
-References to large objects in SlimMLS structures, in their associated companion
-structures (e.g., SlimUpdatePath, {{slim-commit}}), and in GroupInfo extensions
-defined by this document MUST be resolved to the corresponding large objects
-when necessary for MLS operations or validation checks.
+References to large objects in SlimMLS structures, including nested structures
+such as the SlimUpdatePath in a SlimCommit ({{slim-commit}}), and in GroupInfo
+extensions defined by this document MUST be resolved to the corresponding large
+objects when necessary for MLS operations or validation checks.
 
 SlimMLS defines three retrieval channels:
 
@@ -424,9 +425,8 @@ Applications can decide how or if they use one or more retrieval channels.
 
 On receipt of a SlimMLS structure, a client:
 
-1. For every large-object `*Ref` it needs to process the structure or any
-   associated companion structure, locates a candidate object through any of the
-   three channels above.
+1. For every large-object `*Ref` it needs to process the structure, locates a
+   candidate object through any of the three channels above.
 2. Computes the reference of each candidate object under the appropriate
    label ({{ref-types}}) and verifies that it equals the `*Ref` being
    resolved. A candidate object whose reference does not match MUST NOT be
@@ -439,17 +439,16 @@ On receipt of a SlimMLS structure, a client:
 
 A client sending a SlimMLS struct over the wire MAY also send a
 LargeObjectCarrier struct that contains a subset of the large objects referenced
-by the SlimMLS struct or by an associated structure such as SlimUpdatePath
-({{slim-commit}}).
+by the SlimMLS struct, including nested structures such as the SlimUpdatePath in
+a SlimCommit ({{slim-commit}}).
 
 This document does not define a single MLSMessage wrapper for
 LargeObjectCarrier. When a carrier is sent on the wire, its encoding,
 multiplexing, and association with the SlimMLS message are provided by the
 application or DS protocol using SlimMLS.
 
-For each large-object reference type that appears in a slim structure or an
-associated structure, the LargeObjectCarrier contains a vector of the
-corresponding large objects:
+For each large-object reference type that appears in a slim structure, the
+LargeObjectCarrier contains a vector of the corresponding large objects:
 
 ~~~
 struct {
@@ -463,11 +462,12 @@ struct {
 
 The carrier is NOT part of the signed structure. The DS MAY add, remove,
 reorder, or substitute entries on a per-recipient basis, e.g., to omit objects
-the recipient already has cached, or to distribute SlimUpdatePath ciphertexts
-(see {{slim-commit}}). The LargeObjectCarrier is optional in the SlimMLS wire
-protocol. The DS MAY reject a message based on a missing LargeObjectCarrier, or
-on a LargeObjectCarrier that is missing the large objects that clients will need
-to process a message, if its local deployment policy requires senders to provide
+the recipient already has cached, or to deliver only the referenced
+HPKECiphertexts a recipient needs from a SlimUpdatePath (see {{slim-commit}}).
+The LargeObjectCarrier is optional in the SlimMLS wire protocol. The DS MAY
+reject a message based on a missing LargeObjectCarrier, or on a
+LargeObjectCarrier that is missing the large objects that clients will need to
+process a message, if its local deployment policy requires senders to provide
 those objects proactively.
 
 # SlimKeyPackage {#slim-key-package}
@@ -777,18 +777,17 @@ absent MUST consider the SlimWelcome invalid.
 
 # SlimCommit {#slim-commit}
 
-SlimCommit enables split delivery for SlimMLS Commits. The DS can deliver to
-each recipient only the HPKECiphertextRefs and HPKECiphertexts intended for
-that recipient. It also saves one signature when a commit contains a path but
-does not rotate the sender's signature key.
+SlimCommit is the SlimMLS replacement for the {{!RFC9420}} Commit struct. Its
+payload differs from RFC 9420 only by replacing large objects with references
+and by using SlimProposal and SlimLeafNode where the RFC 9420 structures use
+Proposal and LeafNode.
 
 A SlimMLS-aware sender MUST use a SlimCommit in place of an MLS Commit in a
 group with the `slim_mls` extension.
 
 A SlimCommit is carried in either a SlimPublicMessage or SlimPrivateMessage
-({{slim-framing}}). These message structures allow the unsigned SlimUpdatePath
-to be carried alongside the framed SlimCommit without being included in the
-transcript hash, the membership tag, or the framing signature.
+({{slim-framing}}). It is part of the framed content exactly where {{!RFC9420}}
+would carry a Commit.
 
 A SlimCommit carries the normal {{!RFC9420}} confirmation tag in its
 SlimFramedContentAuthData. When the single-signature construction of
@@ -799,46 +798,45 @@ variant is determined by the message envelope.
 
 ~~~
 struct {
-  ProposalOrRef          proposals<V>;
-  optional<SlimLeafNode> leaf_node;
-} SlimCommit;
-~~~
-
-`leaf_node`, when present, is the committer's new SlimLeafNode.
-
-## SlimUpdatePath
-
-The path is conveyed separately from the framed SlimCommit:
-
-~~~
-struct {
   HPKEPublicKeyRef  encryption_key_ref;
   HPKECiphertextRef encrypted_path_secret_refs<V>;
 } SlimUpdatePathNode;
 
 struct {
+  SlimLeafNode       leaf_node;
   SlimUpdatePathNode nodes<V>;
 } SlimUpdatePath;
+
+struct {
+  ProposalOrRef           proposals<V>;
+  optional<SlimUpdatePath> path;
+} SlimCommit;
 ~~~
 
-Each SlimUpdatePathNode carries an HPKEPublicKeyRef for the new ParentNode
-public key and a vector of HPKECiphertextRefs. In the sender-to-DS
-SlimUpdatePath, the `encrypted_path_secret_refs` vector has the same order and
-cardinality as the `encrypted_path_secret` vector in the corresponding
-{{!RFC9420}} UpdatePathNode. In a DS-to-recipient SlimUpdatePath, the DS MAY
-reduce each `encrypted_path_secret_refs` vector to the subset the recipient
-needs. The reduced path MUST contain enough HPKECiphertextRefs for the recipient
-to decrypt one path secret and derive the remaining path secrets it needs to
-process the Commit. The corresponding HPKECiphertexts, and any HPKEPublicKeys
-that are functionally needed, are resolved per {{large-object-retrieval}}.
+The ProposalOrRef values in `proposals` use SlimProposal wherever {{!RFC9420}}
+ProposalOrRef contains a Proposal by value. `path`, when present, follows the
+same path-population and path-validation rules as the `path` field of the
+{{!RFC9420}} Commit struct.
 
-The SlimUpdatePath is not signed. Its HPKEPublicKeyRefs are authenticated by
-the parent hash in the committer's SlimLeafNode, as in {{Section 7.9 of
-!RFC9420}}, with HPKEPublicKeyRef replacing HPKEPublicKey in the parent-hash
-computation. Its HPKECiphertextRefs are unauthenticated delivery objects: a
-recipient validates them by decrypting the referenced HPKECiphertext, deriving
-the path public keys, checking that the derived public keys hash to the
-authenticated HPKEPublicKeyRefs, and verifying the Commit confirmation tag.
+## SlimUpdatePath
+
+Each SlimUpdatePathNode carries an HPKEPublicKeyRef for the new ParentNode
+public key and a vector of HPKECiphertextRefs. The
+`encrypted_path_secret_refs` vector has the same order and cardinality as the
+`encrypted_path_secret` vector in the corresponding {{!RFC9420}}
+UpdatePathNode.
+
+The DS MAY vary the LargeObjectCarrier on a per-recipient basis and include only
+the HPKECiphertexts and HPKEPublicKeys that a recipient needs to process the
+Commit.
+
+The HPKEPublicKeyRefs in SlimUpdatePath are also authenticated by the parent
+hash in the committer's SlimLeafNode, as in {{Section 7.9 of !RFC9420}}, with
+HPKEPublicKeyRef replacing HPKEPublicKey in the parent-hash computation. A
+recipient validates resolved HPKECiphertexts by checking their references,
+decrypting one path secret, deriving the path public keys, checking that the
+derived public keys hash to the HPKEPublicKeyRefs in the SlimUpdatePath, and
+verifying the Commit confirmation tag.
 
 ## Slim Framing {#slim-framing}
 
@@ -848,9 +846,9 @@ except that:
 
 - the framed content carries a SlimCommit or SlimProposal where {{!RFC9420}}
   carries a Commit or Proposal,
-- the authentication data is a SlimFramedContentAuthData, and
-- when the content is a SlimCommit, the unsigned SlimUpdatePath is carried
-  alongside the framed content, outside the authenticated content.
+- the authentication data is a SlimFramedContentAuthData, whose signature is a
+  SignatureOrRef and whose signature field is omitted for single-signature
+  Commits.
 
 SlimProposal is the slim variant of the {{!RFC9420}} Proposal struct obtained
 by the mechanical-substitution rule of {{slim-structs}}: an Add proposal
@@ -925,13 +923,6 @@ struct {
     case new_member_proposal:
       struct{};
   };
-  select (SlimPublicMessage.content.content_type) {
-    case commit:
-      optional<SlimUpdatePath> path;
-    case application:
-    case proposal:
-      struct{};
-  };
 } SlimPublicMessage;
 
 struct {
@@ -954,13 +945,6 @@ struct {
   opaque authenticated_data<V>;
   opaque encrypted_sender_data<V>;
   opaque ciphertext<V>;
-  select (SlimPrivateMessage.content_type) {
-    case commit:
-      optional<SlimUpdatePath> path;
-    case application:
-    case proposal:
-      struct{};
-  };
 } SlimPrivateMessage;
 ~~~
 
@@ -990,8 +974,8 @@ SlimFramedContent from the outer `group_id`, `epoch`, `content_type`, and
 `authenticated_data` fields, the decrypted sender, and the decrypted content.
 The reconstructed SlimFramedContent is used with the decrypted
 SlimFramedContentAuthData for signature verification and, for commits, for
-OuterUpdateHash verification, transcript hash computation, and confirmation tag
-verification.
+OuterUpdateHash verification when applicable, transcript hash computation, and
+confirmation tag verification.
 
 For SlimPublicMessage, the membership tag is computed over the following
 structure:
@@ -1012,19 +996,13 @@ struct {
 } SlimConfirmedTranscriptHashInput;
 ~~~
 
-The SlimUpdatePath is not part of SlimFramedContent,
-SlimAuthenticatedContentTBM, or SlimConfirmedTranscriptHashInput. It is
-therefore not authenticated by the membership tag, the framing signature, or
-the transcript hash. In a SlimPrivateMessage carrying a commit, the path is
-carried outside the ciphertext so the DS can reduce it per recipient.
-
 ## SlimMessage
 
 SlimMessage is the generic term for the two concrete wire presentations,
-SlimPublicMessage and SlimPrivateMessage. Both presentations are used for
-sender-to-DS transport and for DS-to-recipient delivery. For commits, the
-difference between the two is the cardinality of the HPKECiphertextRef vectors
-in `path`.
+SlimPublicMessage and SlimPrivateMessage. Both presentations carry the same
+SlimCommit structure. A DS MAY vary an associated LargeObjectCarrier on a
+per-recipient basis, but it MUST NOT rewrite a SlimMessage or the SlimCommit
+inside it without causing the normal SlimMLS authentication checks to fail.
 
 In a SlimMLS group, the {{!RFC9420}} PublicMessage and PrivateMessage wire
 formats MUST NOT be used. A SlimMLS-aware sender MUST emit a SlimPublicMessage
@@ -1032,12 +1010,12 @@ or SlimPrivateMessage in their place.
 
 ## Single Signature Construction {#single-sig-commits}
 
-When a SlimCommit is sent by a member, contains a SlimLeafNode, and the
-sender's signature key is unchanged, the framing signature is omitted, and
-authenticity is provided by the SlimLeafNode's own signature in combination
-with an OuterUpdateHash component placed in the SlimLeafNode's
-`app_data_dictionary` extension. The confirmation tag is still present and
-processed as in {{!RFC9420}}.
+When a SlimCommit is sent by a member, contains a path, and the sender's
+signature key is unchanged, the framing signature is omitted, and authenticity
+is provided by the path leaf's SlimLeafNode signature in combination with an
+OuterUpdateHash component placed in that SlimLeafNode's `app_data_dictionary`
+extension. The confirmation tag is still present and processed as in
+{{!RFC9420}}.
 
 The OuterUpdateHash binds the framed SlimCommit (excluding the SlimLeafNode
 itself, to avoid a circular dependency) and the GroupContext to the
@@ -1049,14 +1027,23 @@ struct {
 } OuterUpdateHash;
 
 struct {
-  opaque       group_id<V>;
-  uint64       epoch;
-  Sender       sender;
-  opaque       authenticated_data<V>;
-  ContentType  content_type;
+  SlimUpdatePathNode nodes<V>;
+} OuterSlimUpdatePath;
+
+struct {
+  ProposalOrRef                 proposals<V>;
+  optional<OuterSlimUpdatePath> path;
+} OuterSlimCommit;
+
+struct {
+  opaque      group_id<V>;
+  uint64      epoch;
+  Sender      sender;
+  opaque      authenticated_data<V>;
+  ContentType content_type;
   select (OuterFramedContent.content_type) {
     case commit:
-      ProposalOrRef proposals<V>;
+      OuterSlimCommit commit;
   };
 } OuterFramedContent;
 
@@ -1070,30 +1057,31 @@ struct {
 
 `outer_update_hash` is the hash, under the group's ciphersuite hash function,
 of the TLS-encoded SlimFramedContentTBH. Fields of OuterFramedContent are
-populated from the SlimCommit being framed. The SlimLeafNode is omitted to
-prevent the circular dependency that would arise from including the very
-component being computed.
+populated from the SlimFramedContent and SlimCommit being framed. The
+SlimLeafNode in `content.commit.path.leaf_node` is omitted to prevent the
+circular dependency that would arise from including the very component being
+computed. The path field in OuterSlimCommit MUST be present when this
+construction is used.
 
 The `app_data_dictionary` extension MUST contain exactly one OuterUpdateHash
 component under component identifier TBD. A missing, malformed, or duplicated
 OuterUpdateHash component makes the single-signature construction invalid.
 
-The OuterUpdateHash authenticates the non-path commit contents that the omitted
-framing signature would otherwise cover. The path's HPKEPublicKeyRefs are
-authenticated separately by parent hash validation. The path's
-HPKECiphertextRefs are not authenticated by the signature and do not contribute
-to the group state. Tampering with them can only cause decryption, derived-key,
-or confirmation-tag validation to fail.
+The OuterUpdateHash authenticates the Commit contents and path nodes that the
+omitted framing signature would otherwise cover. The path leaf's SlimLeafNode
+signature authenticates the SlimLeafNodeTBS, including the OuterUpdateHash
+component and the parent hash. The referenced HPKECiphertext objects are not
+signed directly, but are bound to the signed Commit by their
+HPKECiphertextRefs.
 
-When the construction applies, the SignaturePublicKeyRef in the SlimLeafNode
-MUST equal the sender's current SignaturePublicKeyRef. A sender that wishes
-to change its signature key MUST instead emit a SlimCommit whose authentication
-data carries a framing signature, so that the new key is bound by a signature
-under the old one.
+When the construction applies, the SignaturePublicKeyRef in
+`content.commit.path.leaf_node` MUST equal the sender's current
+SignaturePublicKeyRef. A sender that wishes to change its signature key MUST
+instead emit a SlimCommit whose authentication data carries a framing
+signature, so that the new key is bound by a signature under the old one.
 
-A SlimCommit without a SlimLeafNode (e.g., a commit containing only Add or
-Remove proposals) does not use this construction. Its authentication data
-carries a framing signature.
+A SlimCommit without a path does not use this construction. Its authentication
+data carries a framing signature.
 
 A SlimCommit whose sender type is not `member` does not use this construction.
 Its authentication data carries a framing signature.
@@ -1107,29 +1095,27 @@ A committer constructs a SlimMessage carrying a SlimCommit as follows:
    schedule. Parent hashes are computed over the slim parent-hash inputs, with
    HPKEPublicKeyRef replacing HPKEPublicKey.
 2. Build a SlimCommit containing the committed proposals and, if the commit
-   contains a path, the committer's new SlimLeafNode. The SlimLeafNode's
-   parent hash MUST authenticate the HPKEPublicKeyRefs in the SlimUpdatePath.
+   contains a path, a SlimUpdatePath. The SlimUpdatePath contains the
+   committer's new SlimLeafNode and SlimUpdatePathNodes whose
+   HPKEPublicKeyRefs and HPKECiphertextRefs correspond to the public keys and
+   ciphertexts in the RFC 9420 UpdatePath. The SlimLeafNode's parent hash MUST
+   authenticate the HPKEPublicKeyRefs in the SlimUpdatePath.
 3. Compute the confirmation tag for the new epoch as in {{!RFC9420}}.
 4. If the single-signature construction applies, include a valid OuterUpdateHash
-   in the SlimLeafNode and leave the optional `signature` field absent. If the
+   in `path.leaf_node` and leave the optional `signature` field absent. If the
    construction does not apply, include the normal framing signature in
    SlimFramedContentAuthData, using `signature_type = signature_ref` for
    SlimPublicMessage and `signature_type = signature` for SlimPrivateMessage.
-5. Build a SlimUpdatePath whose SlimUpdatePathNodes carry the HPKEPublicKeyRefs
-   and HPKECiphertextRefs of the path, and emit a SlimPublicMessage or
-   SlimPrivateMessage, optionally accompanied by a LargeObjectCarrier holding
-   the corresponding HPKEPublicKeys, HPKECiphertexts, and any public-message
-   framing signature referenced by the SignatureOrRef.
+5. Emit a SlimPublicMessage or SlimPrivateMessage, optionally accompanied by a
+   LargeObjectCarrier holding the referenced large objects needed to process
+   the Commit, such as the corresponding HPKEPublicKeys, HPKECiphertexts,
+   SlimLeafNode signature bytes, and any public-message framing signature
+   referenced by the SignatureOrRef.
 
-The DS, knowing the ratchet tree before and after the commit, produces a
-per-recipient SlimMessage by reducing each SlimUpdatePathNode's
-HPKECiphertextRef vector to the subset needed by that recipient. The DS MUST
-retain the HPKEPublicKeyRef in every SlimUpdatePathNode, and MUST retain enough
-HPKECiphertextRefs for the recipient to decrypt one path secret and derive the
-remaining path secrets it needs to process the Commit. If a LargeObjectCarrier
-is present, the DS reduces it accordingly, retaining only any HPKEPublicKeys the
-recipient must receive and the HPKECiphertexts corresponding to the retained
-HPKECiphertextRefs. If the commit removes the recipient, `path` is omitted.
+If a LargeObjectCarrier is present, the DS MAY reduce it per recipient,
+retaining only any HPKEPublicKeys the recipient must receive and enough
+HPKECiphertexts for the recipient to decrypt one path secret and derive the
+remaining path secrets it needs to process the Commit.
 
 For basic-processing delivery of a Commit with an update path, a recipient needs
 enough ciphertext material to derive the epoch secrets and verify the Commit, but
@@ -1144,23 +1130,23 @@ public key for each non-committing recipient.
 
 A recipient processes a SlimMessage carrying a SlimCommit by:
 
-1. Resolving the HPKECiphertextRefs required for the recipient and any
-   HPKEPublicKeyRefs that are functionally needed, per
-   {{large-object-retrieval}}. For SlimPublicMessage, this also includes any
-   SignatureRef in the SlimFramedContentAuthData SignatureOrRef. For
-   SlimPrivateMessage, the recipient decrypts SlimPrivateMessageContent and
-   uses the inline SignatureOrRef value when one is present.
+1. Resolving the HPKECiphertextRefs required for the recipient, the
+   HPKEPublicKeyRefs that are functionally needed, and any SignatureRefs needed
+   for signature verification, per {{large-object-retrieval}}. For
+   SlimPrivateMessage, the recipient decrypts SlimPrivateMessageContent before
+   resolving references that appear only inside the encrypted content.
 2. If the authentication data contains a framing signature, verifying it per
    {{!RFC9420}} using SlimFramedContentTBS. If the SignatureOrRef uses
    `signature_type = signature_ref`, the recipient first resolves the referenced
    signature. If it uses `signature_type = signature`, the recipient uses the
    inline signature. If the framing signature is absent, verifying
-   the SlimLeafNode signature and OuterUpdateHash per {{single-sig-commits}}.
-3. Decrypting the resolved HPKECiphertext, deriving the path public keys, and
-   verifying that the derived public keys hash to the authenticated
-   HPKEPublicKeyRefs.
-4. Applying the path update and verifying parent hashes over the slim encodings
-   per {{Section 7.9.2 of !RFC9420}}.
+   the `path.leaf_node` signature and OuterUpdateHash per
+   {{single-sig-commits}}.
+3. If the Commit contains a path, decrypting the resolved HPKECiphertext,
+   deriving the path public keys, and verifying that the derived public keys
+   hash to the HPKEPublicKeyRefs in the SlimUpdatePath.
+4. If the Commit contains a path, applying the path update and verifying parent
+   hashes over the slim encodings per {{Section 7.9.2 of !RFC9420}}.
 5. Processing the commit per {{Section 12.4 of !RFC9420}}, deriving the new
    epoch, and verifying the confirmation tag. If confirmation tag validation
    fails, the recipient MUST reject the commit.
@@ -1170,8 +1156,9 @@ SlimConfirmedTranscriptHashInput ({{slim-framing}}). The interim transcript
 hash is computed from the confirmed transcript hash and the confirmation tag
 as in {{!RFC9420}}.
 
-DSs that do not maintain the ratchet tree cannot perform the per-recipient
-reduction described above. Strategies for such deployments are out of scope.
+DSs that do not maintain the ratchet tree cannot determine the minimal
+LargeObjectCarrier contents needed by each recipient. Strategies for such
+deployments are out of scope.
 
 # Optimizing Payload Sizes
 
@@ -1299,21 +1286,13 @@ resolved per {{large-object-retrieval}}, as for any other HPKEPublicKeyRef.
 
 # Security Considerations
 
-Outside the SlimCommit split path described below, the signing and
-transcript-hashing rules of {{!RFC9420}} are preserved by SlimMLS: every struct
-that was authenticated under {{!RFC9420}} remains authenticated, with large
-objects bound through the collision-resistant hash references defined in
-{{ref-types}}. The strength of the binding is therefore at most the collision
-resistance of the ciphersuite hash.
-
-SlimCommit ({{slim-commit}}) changes the exact authentication surface of
-Commits with paths. The path's HPKEPublicKeyRefs are not covered directly by the
-framing signature or OuterUpdateHash, but are authenticated by the parent hash
-chain rooted in the signed SlimLeafNode. The path's HPKECiphertextRefs are not
-authenticated by the signature and are treated as delivery objects. Tampering
-with an HPKECiphertextRef or the referenced HPKECiphertext can only cause the
-recipient to fail reference resolution, decryption, derived-public-key matching,
-parent-hash validation, or confirmation-tag validation.
+The signing and transcript-hashing rules of {{!RFC9420}} are preserved by
+SlimMLS except where this document explicitly applies the SlimCommit
+single-signature construction ({{single-sig-commits}}): every struct that was
+authenticated under {{!RFC9420}} remains authenticated, with large objects bound
+through the collision-resistant hash references defined in {{ref-types}}. The
+strength of the binding is therefore at most the collision resistance of the
+ciphersuite hash.
 
 Large-object retrieval channels ({{large-object-retrieval}}) may be
 unauthenticated. The hash-reference verification in step 2 of that section is
