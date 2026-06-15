@@ -3,7 +3,7 @@ title: "SlimMLS"
 abbrev: "SlimMLS"
 category: info
 
-docname: draft-robert-mls-slimmls-latest
+docname: draft-robert-mls-slim-latest
 submissiontype: IETF
 number:
 date:
@@ -21,7 +21,7 @@ venue:
   type: "Working Group"
   mail: "mls@ietf.org"
   arch: "https://mailarchive.ietf.org/arch/browse/mls/"
-  github: "raphaelrobert/draft-robert-mls-slimmls"
+  github: "raphaelrobert/slim-mls"
 
 author:
  -

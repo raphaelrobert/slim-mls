@@ -2,10 +2,10 @@
 
 This is the working area for the individual Internet-Draft, "SlimMLS".
 
-* [Editor's Copy](https://raphaelrobert.github.io/slim-mls/#go.draft-robert-mls-slimmls.html)
-* [Datatracker Page](https://datatracker.ietf.org/doc/draft-robert-mls-slimmls)
-* [Individual Draft](https://datatracker.ietf.org/doc/html/draft-robert-mls-slimmls)
-* [Compare Editor's Copy to Individual Draft](https://raphaelrobert.github.io/slim-mls/#go.draft-robert-mls-slimmls.diff)
+* [Editor's Copy](https://raphaelrobert.github.io/slim-mls/#go.draft-robert-mls-slim.html)
+* [Datatracker Page](https://datatracker.ietf.org/doc/draft-robert-mls-slim)
+* [Individual Draft](https://datatracker.ietf.org/doc/html/draft-robert-mls-slim)
+* [Compare Editor's Copy to Individual Draft](https://raphaelrobert.github.io/slim-mls/#go.draft-robert-mls-slim.diff)
 
 
 ## Contributing
