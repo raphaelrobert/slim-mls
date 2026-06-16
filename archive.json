@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2026-06-14T00:59:55.244372+00:00",
+  "timestamp": "2026-06-16T01:06:52.276186+00:00",
   "repo": "raphaelrobert/slim-mls",
   "labels": [
     {
@@ -326,6 +326,48 @@
           "body": "",
           "createdAt": "2026-05-29T10:24:19Z",
           "updatedAt": "2026-05-29T10:24:19Z",
+          "comments": []
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "id": "PR_kwDOSNwvCs7meIUl",
+      "title": "Remove split commits mechanic",
+      "url": "https://github.com/raphaelrobert/slim-mls/pull/7",
+      "state": "MERGED",
+      "author": "kkohbrok",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [],
+      "labels": [],
+      "body": "",
+      "createdAt": "2026-06-15T09:38:33Z",
+      "updatedAt": "2026-06-15T10:07:04Z",
+      "baseRepository": "raphaelrobert/slim-mls",
+      "baseRefName": "main",
+      "baseRefOid": "af4a398763239a9fdf19948b1e96cb7cbeb47393",
+      "headRepository": "raphaelrobert/slim-mls",
+      "headRefName": "konrad/remove_splitcommits",
+      "headRefOid": "b6deffd94b4a7edcbcdfbd4a11a7912050eae4f7",
+      "closedAt": "2026-06-15T10:07:04Z",
+      "mergedAt": "2026-06-15T10:07:04Z",
+      "mergedBy": "kkohbrok",
+      "mergeCommit": {
+        "oid": "054a214e0355524266abc2705b2bbee8a6d67bda"
+      },
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOSNwvCs8AAAABDAC77Q",
+          "commit": {
+            "abbreviatedOid": "b6deffd"
+          },
+          "author": "raphaelrobert",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2026-06-15T10:02:05Z",
+          "updatedAt": "2026-06-15T10:02:05Z",
           "comments": []
         }
       ]
